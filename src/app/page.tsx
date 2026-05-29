@@ -38,21 +38,30 @@ const RadioGroup: React.FC<{
     disabled?: boolean;
 }> = ({ name, options, value, onChange, disabled = false }) => (
     <div className="flex flex-col space-y-3">
-        {options.map((opt, idx) => (
-            <label key={idx} className={`flex items-center space-x-3 cursor-pointer group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                <input 
-                    type="radio" 
-                    name={name} 
-                    value={opt} 
-                    checked={value === opt}
-                    onChange={() => onChange(opt)}
-                    required
-                    disabled={disabled}
-                    className="w-5 h-5 accent-purple-700 border-gray-300 focus:ring-purple-500 transition duration-150"
-                />
-                <span className="text-gray-700 group-hover:text-purple-800 transition duration-150">{opt}</span>
-            </label>
-        ))}
+        {options.map((opt, idx) => {
+            // Mostrar los puntos si coincide con la escala GAD-7 clásica
+            let labelText = opt;
+            if (opt === "Nunca") labelText = "0 - Nunca";
+            else if (opt === "Varios días") labelText = "1 - Varios días";
+            else if (opt === "Más de la mitad de los días") labelText = "2 - Más de la mitad de los días";
+            else if (opt === "Casi todos los días") labelText = "3 - Casi todos los días";
+
+            return (
+                <label key={idx} className={`flex items-center space-x-3 cursor-pointer group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    <input 
+                        type="radio" 
+                        name={name} 
+                        value={opt} 
+                        checked={value === opt}
+                        onChange={() => onChange(opt)}
+                        required
+                        disabled={disabled}
+                        className="w-5 h-5 accent-purple-700 border-gray-300 focus:ring-purple-500 transition duration-150"
+                    />
+                    <span className="text-gray-700 group-hover:text-purple-800 transition duration-150">{labelText}</span>
+                </label>
+            );
+        })}
     </div>
 );
 
@@ -237,12 +246,83 @@ export default function HomeSurvey() {
                     {/* Si calculamos ansiedad */}
                     {isGad7Result && gad7Styles && (
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Resultado Escala GAD-7 (Ansiedad)</h2>
-                            <div className={`p-4 rounded-md mb-4 ${gad7Styles.bg}`}>
-                                <p className="text-lg text-gray-800">Tu puntaje es: <strong>{serverResult.score} / 21</strong></p>
-                                <p className={`text-xl font-bold mt-1 ${gad7Styles.color}`}>Nivel indicado: {serverResult.level}</p>
+                            <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center">
+                                <svg className="w-6 h-6 text-purple-700 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Evaluación Oficial Escala GAD-7 (Ansiedad Generalizada)
+                            </h2>
+                            
+                            <div className="flex flex-col md:flex-row gap-6 items-center mb-6">
+                                <div className="w-full md:w-5/12 text-center md:border-r md:border-gray-200 md:pr-6 py-2">
+                                    <div className="inline-block p-4 rounded-full bg-purple-50 mb-2">
+                                        <span className="text-4xl font-black text-purple-700">{serverResult.score}</span>
+                                        <span className="text-gray-400 text-lg"> / 21</span>
+                                    </div>
+                                    <h4 className="font-bold text-gray-800 text-lg mb-1">{serverResult.level}</h4>
+                                    <span className="text-xs text-gray-400 block">Escala clínica validada científicamente</span>
+                                </div>
+                                <div className="w-full md:w-7/12">
+                                    <h5 className="font-bold text-gray-700 text-xs mb-2 uppercase tracking-wider">Sistema de Calificación Original:</h5>
+                                    <div className="space-y-1.5 text-xs text-gray-600 mb-3">
+                                        <div className={`flex justify-between p-1.5 px-3 rounded ${serverResult.score! <= 4 ? 'bg-green-100 font-semibold text-green-800 border border-green-200' : 'bg-gray-50'}`}>
+                                            <span>0 - 4 puntos:</span> <span>Ansiedad Mínima</span>
+                                        </div>
+                                        <div className={`flex justify-between p-1.5 px-3 rounded ${serverResult.score! >= 5 && serverResult.score! <= 9 ? 'bg-yellow-100 font-semibold text-yellow-800 border border-yellow-200' : 'bg-gray-50'}`}>
+                                            <span>5 - 9 puntos:</span> <span>Ansiedad Leve</span>
+                                        </div>
+                                        <div className={`flex justify-between p-1.5 px-3 rounded ${serverResult.score! >= 10 && serverResult.score! <= 14 ? 'bg-orange-100 font-semibold text-orange-800 border border-orange-200' : 'bg-gray-50'}`}>
+                                            <span>10 - 14 puntos:</span> <span>Ansiedad Moderada</span>
+                                        </div>
+                                        <div className={`flex justify-between p-1.5 px-3 rounded ${serverResult.score! >= 15 ? 'bg-red-100 font-semibold text-red-800 border border-red-200' : 'bg-gray-50'}`}>
+                                            <span>15 - 21 puntos:</span> <span>Ansiedad Severa</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Barra visual de rango */}
+                                    <div className="w-full bg-gray-100 rounded-full h-3.5 mb-2 overflow-hidden flex">
+                                        <div className="h-full bg-green-500" style={{ width: '23.8%' }}></div>
+                                        <div className="h-full bg-yellow-400" style={{ width: '23.8%' }}></div>
+                                        <div className="h-full bg-orange-500" style={{ width: '23.8%' }}></div>
+                                        <div className="h-full bg-red-500" style={{ width: '28.6%' }}></div>
+                                    </div>
+                                    <div className="flex justify-between text-[10px] text-gray-400 px-1 font-mono">
+                                        <span>0</span>
+                                        <span>5</span>
+                                        <span>10</span>
+                                        <span>15</span>
+                                        <span>21</span>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-sm text-gray-500 italic">*Nota: Este resultado es orientativo y no constituye un diagnóstico clínico. Si sientes que la ansiedad afecta tu bienestar, te recomendamos buscar apoyo profesional.</p>
+
+                            {/* Recomendación Clínica */}
+                            <div className="p-4 rounded-lg bg-purple-50/50 border border-purple-100">
+                                <h4 className="font-bold text-purple-900 text-sm mb-2 flex items-center">
+                                    <svg className="w-4 h-4 text-purple-700 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    Recomendación y Consejos del Estudio:
+                                </h4>
+                                <p className="text-gray-700 text-sm leading-relaxed m-0">
+                                    {(() => {
+                                        const score = serverResult.score!;
+                                        if (score <= 4) {
+                                            return "Sintomatología mínima o ausente de ansiedad. Continúa aplicando tus hábitos cotidianos de autocuidado, alimentación sana, recreación activa y descanso equilibrado para salvaguardar tu bienestar general.";
+                                        } else if (score <= 9) {
+                                            return "Sintomatología leve de ansiedad detectada. Te aconsejamos practicar ejercicios regulares de relajación, respiración consciente, meditación o actividad física moderada. Considera reevaluar tu estado en unas semanas y mantén hábitos sanos de sueño.";
+                                        } else if (score <= 14) {
+                                            return "Sintomatología moderada de ansiedad detectada. Te recomendamos conversar sobre esto con personas de tu confianza y acudir al departamento de bienestar estudiantil o consejería psicológica de tu campus para recibir orientación vocacional, técnicas de manejo de estrés académico y soporte preventivo.";
+                                        } else {
+                                            return "Sintomatología severa de ansiedad detectada. Te sugerimos firmemente priorizar tu salud y acudir de manera proactiva a una consulta con un profesional del área médica o psicológica (terapeuta) para recibir un acompañamiento clínico completo, seguro y especializado. Tu bienestar es lo más importante.";
+                                        }
+                                    })()}
+                                </p>
+                            </div>
+                            
+                            <div className="mt-3 text-center">
+                                <span className="text-[11px] text-gray-400 italic">Este resultado es un indicador orientativo derivado de tus respuestas al test autoaplicado y no constituye bajo ningún caso una evaluación diagnóstica ni reemplaza la consulta psicológica o médica profesional.</span>
+                            </div>
                         </div>
                     )}
 

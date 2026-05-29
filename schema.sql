@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS encuestas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     titulo VARCHAR(255) NOT NULL,
     descripcion TEXT,
+    categoria VARCHAR(100) DEFAULT 'General' NOT NULL, -- Categoría temática
     slug VARCHAR(255) UNIQUE NOT NULL,
     activa BOOLEAN DEFAULT TRUE NOT NULL,
     preguntas JSONB NOT NULL, -- Arreglo de preguntas dinámicas [{id, titulo, tipo, opciones, requerida}]
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS respuestas (
 
 -- Índices avanzados para búsquedas y análisis analítico ultra-rápido en JSONB
 CREATE INDEX IF NOT EXISTS idx_encuestas_slug ON encuestas(slug);
+CREATE INDEX IF NOT EXISTS idx_encuestas_categoria ON encuestas(categoria);
 CREATE INDEX IF NOT EXISTS idx_respuestas_encuesta_id ON respuestas(encuesta_id);
 CREATE INDEX IF NOT EXISTS idx_respuestas_created_at ON respuestas(created_at);
 

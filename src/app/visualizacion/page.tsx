@@ -6,6 +6,7 @@ interface PublicSurvey {
     id: string;
     titulo: string;
     slug: string;
+    categoria?: string;
 }
 
 interface Metrics {
@@ -136,12 +137,26 @@ export default function PublicVisualization() {
                                     <select 
                                         value={selectedSlug} 
                                         onChange={(e) => setSelectedSlug(e.target.value)} 
-                                        className="form-select py-2 border-purple"
-                                        style={{ borderColor: 'rgba(139, 92, 246, 0.4)' }}
+                                        className="form-select py-2 border-purple fw-medium"
+                                        style={{ borderColor: 'rgba(139, 92, 246, 0.4)', borderRadius: '6px' }}
                                     >
-                                        {surveys.map(s => (
-                                            <option key={s.id} value={s.slug}>{s.titulo}</option>
-                                        ))}
+                                        {(() => {
+                                            const grouped: Record<string, PublicSurvey[]> = {};
+                                            surveys.forEach(s => {
+                                                const cat = s.categoria || 'General';
+                                                if (!grouped[cat]) grouped[cat] = [];
+                                                grouped[cat].push(s);
+                                            });
+                                            return Object.entries(grouped).map(([category, items]) => (
+                                                <optgroup key={category} label={category} style={{ fontWeight: '600', color: '#6d28d9' }}>
+                                                    {items.map(s => (
+                                                        <option key={s.id} value={s.slug} style={{ fontWeight: '400', color: '#1e1b4b' }}>
+                                                            {s.titulo}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            ));
+                                        })()}
                                     </select>
                                 </>
                             )}
@@ -165,7 +180,19 @@ export default function PublicVisualization() {
                     <>
                         {/* Título de la encuesta actual */}
                         <div className="mb-4 text-center text-md-start">
-                            <h3 className="fw-bold text-dark mb-1">{surveyTitle}</h3>
+                            {(() => {
+                                const activeSurvey = surveys.find(s => s.slug === selectedSlug);
+                                return (
+                                    <div className="d-flex align-items-center flex-wrap gap-2 mb-1 justify-content-center justify-content-md-start">
+                                        <h3 className="fw-bold text-dark m-0">{surveyTitle}</h3>
+                                        {activeSurvey?.categoria && (
+                                            <span className="badge rounded-pill px-3 py-1.5 text-purple fw-semibold border border-purple-subtle" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#6d28d9', fontSize: '0.8rem' }}>
+                                                {activeSurvey.categoria}
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                             <p className="text-muted m-0 fs-6">{surveyDesc}</p>
                         </div>
 

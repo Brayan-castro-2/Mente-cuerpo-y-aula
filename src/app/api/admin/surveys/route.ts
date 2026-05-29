@@ -31,7 +31,7 @@ export async function GET(request: Request) {
         }
 
         const result = await sql`
-            SELECT e.id, e.titulo, e.descripcion, e.slug, e.activa, e.created_at, e.preguntas,
+            SELECT e.id, e.titulo, e.descripcion, e.categoria, e.slug, e.activa, e.created_at, e.preguntas,
                    COUNT(r.id) as total_respuestas
             FROM encuestas e
             LEFT JOIN respuestas r ON r.encuesta_id = e.id
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { titulo, descripcion, slug, preguntas } = body;
+        const { titulo, descripcion, categoria, slug, preguntas } = body;
 
         if (!titulo || !slug || !preguntas || !Array.isArray(preguntas)) {
             return NextResponse.json({
@@ -69,6 +69,8 @@ export async function POST(request: Request) {
                 error: "Faltan rellenar campos obligatorios (Título, Enlace o Preguntas)."
             }, { status: 400 });
         }
+
+        const finalCategory = categoria || 'General';
 
         // Sanitizar el slug (minúsculas, eliminar caracteres no válidos para URL)
         const sanitizedSlug = slug
@@ -89,8 +91,8 @@ export async function POST(request: Request) {
         const preguntasJson = JSON.stringify(preguntas);
 
         const insertResult = await sql`
-            INSERT INTO encuestas (titulo, descripcion, slug, activa, preguntas)
-            VALUES (${titulo}, ${descripcion}, ${sanitizedSlug}, true, ${preguntasJson})
+            INSERT INTO encuestas (titulo, descripcion, categoria, slug, activa, preguntas)
+            VALUES (${titulo}, ${descripcion}, ${finalCategory}, ${sanitizedSlug}, true, ${preguntasJson})
             RETURNING id, titulo, slug;
         `;
 
@@ -163,7 +165,7 @@ export async function PUT(request: Request) {
         }
 
         const body = await request.json();
-        const { id, titulo, descripcion, slug, preguntas } = body;
+        const { id, titulo, descripcion, categoria, slug, preguntas } = body;
 
         if (!id || !titulo || !slug || !preguntas || !Array.isArray(preguntas)) {
             return NextResponse.json({
@@ -171,6 +173,8 @@ export async function PUT(request: Request) {
                 error: "Faltan rellenar campos obligatorios (Título, Enlace o Preguntas)."
             }, { status: 400 });
         }
+
+        const finalCategory = categoria || 'General';
 
         const sanitizedSlug = slug
             .toLowerCase()
@@ -191,7 +195,7 @@ export async function PUT(request: Request) {
 
         await sql`
             UPDATE encuestas
-            SET titulo = ${titulo}, descripcion = ${descripcion}, slug = ${sanitizedSlug}, preguntas = ${preguntasJson}
+            SET titulo = ${titulo}, descripcion = ${descripcion}, categoria = ${finalCategory}, slug = ${sanitizedSlug}, preguntas = ${preguntasJson}
             WHERE id = ${id};
         `;
 

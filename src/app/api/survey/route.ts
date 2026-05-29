@@ -90,6 +90,11 @@ async function ensureDbInitialized() {
             );
         `;
 
+        // Asegurar que la columna 'categoria' existe (para compatibilidad en caliente)
+        await sql`
+            ALTER TABLE encuestas ADD COLUMN IF NOT EXISTS categoria VARCHAR(100) DEFAULT 'General' NOT NULL;
+        `;
+
         await sql`
             CREATE TABLE IF NOT EXISTS respuestas (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -105,6 +110,7 @@ async function ensureDbInitialized() {
 
         // Índices
         await sql`CREATE INDEX IF NOT EXISTS idx_encuestas_slug ON encuestas(slug);`;
+        await sql`CREATE INDEX IF NOT EXISTS idx_encuestas_categoria ON encuestas(categoria);`;
         await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_encuesta_id ON respuestas(encuesta_id);`;
         await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_created_at ON respuestas(created_at);`;
 
@@ -115,10 +121,11 @@ async function ensureDbInitialized() {
         if (count === 0) {
             const defaultPreguntasJson = JSON.stringify(FLAGSHIP_PREGUNTAS);
             await sql`
-                INSERT INTO encuestas (titulo, descripcion, slug, activa, preguntas)
+                INSERT INTO encuestas (titulo, descripcion, categoria, slug, activa, preguntas)
                 VALUES (
                     'Mente, Cuerpo y Aula',
                     'Encuesta sobre ansiedad, alimentación y rendimiento estudiantil en la educación superior.',
+                    'Salud Mental y Bienestar',
                     'mente-cuerpo-y-aula',
                     true,
                     ${defaultPreguntasJson}
@@ -142,7 +149,7 @@ export async function GET(request: Request) {
 
         if (list === 'active') {
             const result = await sql`
-                SELECT id, titulo, slug 
+                SELECT id, titulo, slug, categoria 
                 FROM encuestas 
                 WHERE activa = true 
                 ORDER BY created_at DESC;
