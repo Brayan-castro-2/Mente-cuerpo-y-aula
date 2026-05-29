@@ -132,12 +132,27 @@ async function ensureDbInitialized() {
     }
 }
 
-// OBTENER ESTRUCTURA DE UNA ENCUESTA
+// OBTENER ESTRUCTURA DE UNA ENCUESTA O LISTA DE ENCUESTAS ACTIVAS
 export async function GET(request: Request) {
     try {
         await ensureDbInitialized();
 
         const { searchParams } = new URL(request.url);
+        const list = searchParams.get('list');
+
+        if (list === 'active') {
+            const result = await sql`
+                SELECT id, titulo, slug 
+                FROM encuestas 
+                WHERE activa = true 
+                ORDER BY created_at DESC;
+            `;
+            return NextResponse.json({
+                success: true,
+                surveys: result.rows
+            });
+        }
+
         const slug = searchParams.get('slug') || 'mente-cuerpo-y-aula';
 
         const result = await sql`

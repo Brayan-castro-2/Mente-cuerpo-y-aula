@@ -439,13 +439,13 @@ export default function AdminDashboard() {
                             </svg>
                         </div>
                         <h2 className="fw-normal">Investigación</h2>
-                        <p className="text-muted small">Panel de Control Administrativo</p>
+                        <p className="text-white-50 small">Panel de Control Administrativo</p>
                     </div>
 
                     <form onSubmit={handleLogin}>
                         {loginError && <div className="alert alert-danger text-center py-2 text-sm">{loginError}</div>}
                         <div className="mb-3">
-                            <label className="form-label text-muted small text-uppercase">Contraseña Administrativa</label>
+                            <label className="form-label text-white-50 small text-uppercase fw-semibold">Contraseña Administrativa</label>
                             <input 
                                 type="password" 
                                 value={password} 
@@ -480,7 +480,8 @@ export default function AdminDashboard() {
                         <span className="badge me-2" style={{ background: '#8b5cf6' }}>PRO</span> 
                         Plataforma de Investigación Estudiantil
                     </span>
-                    <div className="d-flex align-items-center space-x-2">
+                    <div className="d-flex align-items-center">
+                        <a href="/visualizacion" target="_blank" className="btn btn-sm btn-outline-info me-2 px-3">Ver Portal Público</a>
                         <button onClick={() => setShowCreator(!showCreator)} className={`btn btn-sm ${showCreator ? 'btn-outline-warning' : 'btn-purple-light'} me-2`} style={showCreator ? {} : { background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa' }}>
                             {showCreator ? "Cerrar Creador" : "Crear Nueva Encuesta"}
                         </button>

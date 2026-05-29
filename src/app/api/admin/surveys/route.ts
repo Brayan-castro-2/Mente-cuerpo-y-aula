@@ -7,6 +7,22 @@ function checkAuth(request: Request): boolean {
     return authHeader === securePassword;
 }
 
+function formatDbError(error: any, defaultMessage: string): string {
+    const msg = error.message || "";
+    if (
+        msg.includes("relation") || 
+        msg.includes("connection") || 
+        msg.includes("POSTGRES_URL") || 
+        msg.includes("SSL") ||
+        msg.includes("ENOTFOUND") ||
+        msg.includes("missing") ||
+        msg.includes("undefined")
+    ) {
+        return "La base de datos de Vercel Postgres no se encuentra enlazada o conectada en tu proyecto de Vercel. Por favor, ve a la pestaña 'Storage' en tu consola de Vercel, crea una base de datos Postgres (Neon), conéctala a este proyecto y realiza un 'Redeploy' del sitio.";
+    }
+    return defaultMessage;
+}
+
 // OBTENER TODAS LAS ENCUESTAS (CON CONTADOR DE RESPUESTAS)
 export async function GET(request: Request) {
     try {
@@ -31,7 +47,7 @@ export async function GET(request: Request) {
         console.error("Error al obtener encuestas administrativas:", error);
         return NextResponse.json({
             success: false,
-            error: "Error interno del servidor.",
+            error: formatDbError(error, "Error interno del servidor al consultar la base de datos."),
             details: error.message
         }, { status: 500 });
     }
