@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState } from 'react';
 
 const GAD7_OPTIONS = ["Nunca", "Varios días", "Más de la mitad de los días", "Casi todos los días"];
@@ -30,14 +28,7 @@ const PERCEPCION_QUESTIONS = [
     "3. ¿Consideras importante hablar sobre salud mental y alimentación en instituciones educativas?"
 ];
 
-interface QuestionCardProps {
-    title: string;
-    description?: string;
-    children: React.ReactNode;
-    isRequired?: boolean;
-}
-
-const QuestionCard: React.FC<QuestionCardProps> = ({ title, description, children, isRequired = true }) => (
+const QuestionCard = ({ title, description, children, isRequired = true }) => (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4 w-full transition duration-200 hover:shadow-md">
         <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-1">
             {title} {isRequired && <span className="text-red-500">*</span>}
@@ -49,19 +40,10 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ title, description, childre
     </div>
 );
 
-interface RadioGroupProps {
-    name: string;
-    options: string[];
-    vertical?: boolean;
-    formData: Record<string, string>;
-    handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    disabled?: boolean;
-}
-
-const RadioGroup: React.FC<RadioGroupProps> = ({ name, options, vertical = true, formData, handleChange, disabled = false }) => (
+const RadioGroup = ({ name, options, vertical = true, formData, handleChange }) => (
     <div className={`flex ${vertical ? 'flex-col space-y-3' : 'flex-col sm:flex-row sm:space-x-6 sm:space-y-0 space-y-3'}`}>
         {options.map((opt, idx) => (
-            <label key={idx} className={`flex items-center space-x-3 cursor-pointer group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <label key={idx} className="flex items-center space-x-3 cursor-pointer group">
                 <input 
                     type="radio" 
                     name={name} 
@@ -69,7 +51,6 @@ const RadioGroup: React.FC<RadioGroupProps> = ({ name, options, vertical = true,
                     checked={formData[name] === opt}
                     onChange={handleChange}
                     required
-                    disabled={disabled}
                     className="w-5 h-5 accent-purple-700 border-gray-300 focus:ring-purple-500 transition duration-150"
                 />
                 <span className="text-gray-700 group-hover:text-purple-800 transition duration-150">{opt}</span>
@@ -80,11 +61,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({ name, options, vertical = true,
 
 export default function App() {
     const [submitted, setSubmitted] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitError, setSubmitError] = useState<string | null>(null);
-    const [serverResult, setServerResult] = useState<{ score: number; level: string }>({ score: 0, level: "" });
-
-    const [formData, setFormData] = useState<Record<string, string>>({
+    const [formData, setFormData] = useState({
         consentimiento: "",
         edad: "",
         genero: "",
@@ -101,58 +78,38 @@ export default function App() {
         apoyo2: ""
     });
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-        setIsSubmitting(true);
-        setSubmitError(null);
-
-        try {
-            const response = await fetch('/api/survey', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                throw new Error(data.error || "Ocurrió un error al enviar el formulario.");
-            }
-
-            // Guardar el resultado devuelto por la base de datos de manera segura
-            setServerResult({
-                score: data.score,
-                level: data.level
-            });
-            setSubmitted(true);
-            window.scrollTo(0, 0);
-
-        } catch (error: any) {
-            console.error("Error submitting form:", error);
-            setSubmitError(error.message || "Hubo un error de conexión. Por favor inténtalo de nuevo.");
-        } finally {
-            setIsSubmitting(false);
-        }
+        setSubmitted(true);
+        window.scrollTo(0, 0);
     };
 
-    const getGAD7InterpretationStyles = (level: string) => {
-        if (level === "Ansiedad mínima") return { color: "text-green-600", bg: "bg-green-100" };
-        if (level === "Ansiedad leve") return { color: "text-yellow-600", bg: "bg-yellow-100" };
-        if (level === "Ansiedad moderada") return { color: "text-orange-600", bg: "bg-orange-100" };
-        if (level === "Ansiedad severa") return { color: "text-red-600", bg: "bg-red-100" };
-        return { color: "text-gray-600", bg: "bg-gray-100" };
+    const calculateGAD7Score = () => {
+        let score = 0;
+        GAD7_QUESTIONS.forEach((_, i) => {
+            const ans = formData[`gad7_${i}`];
+            if (ans === "Varios días") score += 1;
+            if (ans === "Más de la mitad de los días") score += 2;
+            if (ans === "Casi todos los días") score += 3;
+        });
+        return score;
+    };
+
+    const getGAD7Interpretation = (score) => {
+        if (score >= 0 && score <= 4) return { level: "Ansiedad mínima", color: "text-green-600", bg: "bg-green-100" };
+        if (score >= 5 && score <= 9) return { level: "Ansiedad leve", color: "text-yellow-600", bg: "bg-yellow-100" };
+        if (score >= 10 && score <= 14) return { level: "Ansiedad moderada", color: "text-orange-600", bg: "bg-orange-100" };
+        if (score >= 15) return { level: "Ansiedad severa", color: "text-red-600", bg: "bg-red-100" };
+        return { level: "No determinado", color: "text-gray-600", bg: "bg-gray-100" };
     };
 
     const handleReset = () => {
         setSubmitted(false);
-        setSubmitError(null);
         setFormData({
             consentimiento: "", edad: "", genero: "", carrera: "", anio: "",
             ...Object.fromEntries(GAD7_QUESTIONS.map((_, i) => [`gad7_${i}`, ""])),
@@ -176,21 +133,22 @@ export default function App() {
             );
         }
 
-        const gad7Styles = getGAD7InterpretationStyles(serverResult.level);
+        const gad7Score = calculateGAD7Score();
+        const gad7Result = getGAD7Interpretation(gad7Score);
 
         return (
             <div className="min-h-screen bg-[#f0ebf8] py-10 px-4 sm:px-6 lg:px-8 font-sans">
                 <div className="max-w-4xl mx-auto">
                     <div className="bg-white border-t-8 border-purple-700 rounded-lg shadow-md p-8 mb-6">
                         <h1 className="text-3xl font-semibold text-gray-800 mb-2">¡Gracias por tus respuestas!</h1>
-                        <p className="text-gray-600">La información ha sido guardada de forma segura. A continuación, se muestra un resumen de tu participación y el resultado de la escala aplicada.</p>
+                        <p className="text-gray-600">A continuación, se muestra un resumen de tu participación y el resultado de la escala aplicada.</p>
                     </div>
 
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                         <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Resultado Escala GAD-7 (Ansiedad)</h2>
-                        <div className={`p-4 rounded-md mb-4 ${gad7Styles.bg}`}>
-                            <p className="text-lg text-gray-800">Tu puntaje es: <strong>{serverResult.score} / 21</strong></p>
-                            <p className={`text-xl font-bold mt-1 ${gad7Styles.color}`}>Nivel indicado: {serverResult.level}</p>
+                        <div className={`p-4 rounded-md mb-4 ${gad7Result.bg}`}>
+                            <p className="text-lg text-gray-800">Tu puntaje es: <strong>{gad7Score} / 21</strong></p>
+                            <p className={`text-xl font-bold mt-1 ${gad7Result.color}`}>Nivel indicado: {gad7Result.level}</p>
                         </div>
                         <p className="text-sm text-gray-500 italic">*Nota: Este resultado es orientativo y no constituye un diagnóstico clínico. Si sientes que la ansiedad afecta tu bienestar, te recomendamos buscar apoyo profesional.</p>
                     </div>
@@ -198,7 +156,7 @@ export default function App() {
                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                         <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Resumen de Datos Generales</h2>
                         <ul className="space-y-2 text-gray-700">
-                            <li><strong>Edad:</strong> {formData.edad} años</li>
+                            <li><strong>Edad:</strong> {formData.edad}</li>
                             <li><strong>Género:</strong> {formData.genero}</li>
                             <li><strong>Carrera:</strong> {formData.carrera}</li>
                             <li><strong>Año académico:</strong> {formData.anio}</li>
@@ -266,14 +224,6 @@ export default function App() {
                         <p className="text-red-500 text-sm font-medium">* Indica que la pregunta es obligatoria</p>
                     </div>
 
-                    {/* Mensaje de Error */}
-                    {submitError && (
-                        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded shadow-sm text-sm text-red-700">
-                            <p className="font-bold">Error al enviar formulario:</p>
-                            <p>{submitError}</p>
-                        </div>
-                    )}
-
                     {/* Consentimiento */}
                     <QuestionCard title="¿Acepta participar en esta encuesta?">
                         <RadioGroup 
@@ -281,7 +231,6 @@ export default function App() {
                             options={["Sí", "No"]} 
                             formData={formData}
                             handleChange={handleChange}
-                            disabled={isSubmitting}
                         />
                     </QuestionCard>
 
@@ -302,9 +251,8 @@ export default function App() {
                                     required
                                     min="10"
                                     max="100"
-                                    disabled={isSubmitting}
                                     placeholder="Tu respuesta"
-                                    className="w-full sm:w-1/2 border-b-2 border-gray-300 focus:border-purple-600 outline-none pb-1 pt-2 transition duration-200 text-gray-800 bg-transparent disabled:opacity-50"
+                                    className="w-full sm:w-1/2 border-b-2 border-gray-300 focus:border-purple-600 outline-none pb-1 pt-2 transition duration-200 text-gray-800 bg-transparent"
                                 />
                             </QuestionCard>
 
@@ -314,7 +262,6 @@ export default function App() {
                                     options={["Femenino", "Masculino", "No binario", "Prefiero no responder", "Otro"]} 
                                     formData={formData}
                                     handleChange={handleChange}
-                                    disabled={isSubmitting}
                                 />
                             </QuestionCard>
 
@@ -325,9 +272,8 @@ export default function App() {
                                     value={formData.carrera} 
                                     onChange={handleChange} 
                                     required
-                                    disabled={isSubmitting}
                                     placeholder="Tu respuesta"
-                                    className="w-full sm:w-2/3 border-b-2 border-gray-300 focus:border-purple-600 outline-none pb-1 pt-2 transition duration-200 text-gray-800 bg-transparent disabled:opacity-50"
+                                    className="w-full sm:w-2/3 border-b-2 border-gray-300 focus:border-purple-600 outline-none pb-1 pt-2 transition duration-200 text-gray-800 bg-transparent"
                                 />
                             </QuestionCard>
 
@@ -337,7 +283,6 @@ export default function App() {
                                     options={["1° año", "2° año", "3° año", "4° año", "Otro"]} 
                                     formData={formData}
                                     handleChange={handleChange}
-                                    disabled={isSubmitting}
                                 />
                             </QuestionCard>
 
@@ -349,6 +294,7 @@ export default function App() {
                                 <p className="text-gray-700 font-medium mb-2">Durante las últimas 2 semanas, ¿con qué frecuencia ha experimentado las siguientes situaciones?</p>
                             </div>
 
+                            {}
                             {GAD7_QUESTIONS.map((q, i) => (
                                 <QuestionCard key={i} title={q}>
                                     <RadioGroup 
@@ -356,7 +302,6 @@ export default function App() {
                                         options={GAD7_OPTIONS} 
                                         formData={formData}
                                         handleChange={handleChange}
-                                        disabled={isSubmitting}
                                     />
                                 </QuestionCard>
                             ))}
@@ -373,7 +318,6 @@ export default function App() {
                                         options={RELACION_OPTIONS} 
                                         formData={formData}
                                         handleChange={handleChange}
-                                        disabled={isSubmitting}
                                     />
                                 </QuestionCard>
                             ))}
@@ -383,6 +327,7 @@ export default function App() {
                                 <h2 className="text-lg font-semibold ml-2">PERCEPCIÓN SOBRE SALUD MENTAL Y TRASTORNOS ALIMENTARIOS</h2>
                             </div>
                             
+                            {}
                             {PERCEPCION_QUESTIONS.map((q, i) => (
                                 <QuestionCard key={i} title={q}>
                                     <RadioGroup 
@@ -390,7 +335,6 @@ export default function App() {
                                         options={PERCEPCION_OPTIONS} 
                                         formData={formData}
                                         handleChange={handleChange}
-                                        disabled={isSubmitting}
                                     />
                                 </QuestionCard>
                             ))}
@@ -406,7 +350,6 @@ export default function App() {
                                     options={["Sí", "No", "No estoy seguro/a"]} 
                                     formData={formData}
                                     handleChange={handleChange}
-                                    disabled={isSubmitting}
                                 />
                             </QuestionCard>
 
@@ -416,27 +359,18 @@ export default function App() {
                                     options={["Sí", "No", "Tal vez"]} 
                                     formData={formData}
                                     handleChange={handleChange}
-                                    disabled={isSubmitting}
                                 />
                             </QuestionCard>
 
+                            {}
                             <div className="flex justify-between items-center mt-8 mb-12">
                                 <button 
                                     type="submit" 
-                                    disabled={isSubmitting}
-                                    className={`bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 px-8 rounded shadow-md transition duration-200 flex items-center ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    className="bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 px-8 rounded shadow-md transition duration-200"
                                 >
-                                    {isSubmitting ? (
-                                        <>
-                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Guardando respuestas...
-                                        </>
-                                    ) : 'Enviar'}
+                                    Enviar
                                 </button>
-                                <span className="text-xs text-gray-400 hidden sm:inline">Nunca envíes contraseñas a través de este formulario.</span>
+                                <span className="text-xs text-gray-400">Nunca envíes contraseñas a través de este formulario.</span>
                             </div>
                         </>
                     )}
@@ -446,18 +380,9 @@ export default function App() {
                         <div className="mt-6 mb-12 text-center sm:text-left">
                             <button 
                                 type="submit" 
-                                disabled={isSubmitting}
-                                className={`bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 px-8 rounded shadow-md transition duration-200 flex items-center justify-center ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className="bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 px-8 rounded shadow-md transition duration-200"
                             >
-                                {isSubmitting ? (
-                                    <>
-                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Procesando...
-                                    </>
-                                ) : 'Finalizar y Enviar'}
+                                Finalizar y Enviar
                             </button>
                         </div>
                     )}
