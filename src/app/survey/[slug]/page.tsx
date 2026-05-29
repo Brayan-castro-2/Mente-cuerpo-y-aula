@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 
 interface Question {
     id: string;
@@ -56,8 +57,9 @@ const RadioGroup: React.FC<{
     </div>
 );
 
-export default function HomeSurvey() {
-    const slug = 'mente-cuerpo-y-aula'; // Encuesta flagship por defecto
+export default function DynamicSurvey() {
+    const params = useParams();
+    const slug = params?.slug as string || 'mente-cuerpo-y-aula';
 
     const [loading, setLoading] = useState(true);
     const [survey, setSurvey] = useState<SurveyData | null>(null);
@@ -105,7 +107,7 @@ export default function HomeSurvey() {
         };
 
         fetchSurvey();
-    }, []);
+    }, [slug]);
 
     const handleQuestionChange = (questionId: string, val: string) => {
         setRespuestasPreguntas(prev => ({ ...prev, [questionId]: val }));
@@ -151,7 +153,7 @@ export default function HomeSurvey() {
             window.scrollTo(0, 0);
 
         } catch (error: any) {
-            console.error("Error submitting survey:", error);
+            console.error("Error submitting dynamic survey:", error);
             setSubmitError(error.message || "Hubo un error de conexión con el servidor.");
         } finally {
             setIsSubmitting(false);
@@ -201,10 +203,10 @@ export default function HomeSurvey() {
     if (errorMsg || !survey) {
         return (
             <div className="min-h-screen bg-[#f0ebf8] py-10 px-4 flex items-center justify-center font-sans">
-                <div className="w-full max-w-xl bg-white border-t-8 border-red-600 rounded-lg shadow-md p-6 text-center">
+                <div className="w-full max-w-md bg-white border-t-8 border-red-600 rounded-lg shadow-md p-6 text-center">
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Encuesta no disponible</h2>
                     <p className="text-gray-600 mb-6">{errorMsg || "La encuesta solicitada no existe o ha sido dada de baja."}</p>
-                    <button onClick={() => window.location.reload()} className="bg-purple-700 hover:bg-purple-800 text-white font-medium py-2 px-6 rounded transition duration-200">Reintentar</button>
+                    <a href="/" className="inline-block bg-purple-700 hover:bg-purple-800 text-white font-medium py-2 px-6 rounded transition duration-200">Volver al inicio</a>
                 </div>
             </div>
         );
@@ -282,7 +284,7 @@ export default function HomeSurvey() {
         );
     }
 
-    // Agrupar preguntas por sección
+    // Agrupar preguntas por sección para una visualización premium
     const sections: Record<string, Question[]> = {};
     survey.preguntas.forEach((q) => {
         const sec = q.seccion || "Preguntas Generales";

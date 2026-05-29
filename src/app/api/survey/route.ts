@@ -1,164 +1,263 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
-// Definición de opciones para cálculos del lado del servidor
-const GAD7_QUESTIONS_COUNT = 7;
+const GAD7_QUESTIONS = [
+    "1. Sentirse nervioso/a, ansioso/a o muy alterado/a.",
+    "2. No poder dejar de preocuparse o controlar las preocupaciones.",
+    "3. Preocuparse demasiado por diferentes situaciones.",
+    "4. Tener dificultad para relajarse.",
+    "5. Sentirse tan inquieto/a que es difícil quedarse quieto/a.",
+    "6. Irritarse o molestarse fácilmente.",
+    "7. Sentir miedo como si algo terrible pudiera pasar."
+];
 
-function calculateGAD7Score(body: any): number {
-    let score = 0;
-    for (let i = 0; i < GAD7_QUESTIONS_COUNT; i++) {
-        const ans = body[`gad7_${i}`];
-        if (ans === "Varios días") score += 1;
-        if (ans === "Más de la mitad de los días") score += 2;
-        if (ans === "Casi todos los días") score += 3;
+const RELACION_QUESTIONS = [
+    "1. ¿Has sentido que comes grandes cantidades de comida en poco tiempo, acompañado de una sensación de pérdida de control?",
+    "2. ¿Has presentado molestias físicas (dolor estomacal, náuseas, falta de apetito o malestar digestivo) en períodos de estrés, ansiedad o preocupación académica?",
+    "3. ¿Te has sentido preocupado/a por tu peso o apariencia física al punto de afectar tu bienestar emocional?",
+    "4. ¿Has cambiado tus hábitos alimentarios durante períodos de estrés académico?",
+    "5. ¿Has tenido dificultades para dormir debido a preocupaciones académicas o personales?",
+    "6. ¿Sientes que la ansiedad ha afectado tu rendimiento académico o concentración?"
+];
+
+const PERCEPCION_QUESTIONS = [
+    "1. ¿Consideras que trastornos como la anorexia, bulimia o el trastorno por atracón afectan significativamente la salud mental y la vida académica de una persona?",
+    "2. ¿Crees que existe suficiente información y apoyo sobre salud mental en el entorno estudiantil?",
+    "3. ¿Consideras importante hablar sobre salud mental y alimentación en instituciones educativas?"
+];
+
+// Estructura de preguntas por defecto para sembrar (flagship GAD-7)
+const FLAGSHIP_PREGUNTAS = [
+    // GAD-7
+    ...GAD7_QUESTIONS.map((q, i) => ({
+        id: `gad7_${i}`,
+        titulo: q,
+        seccion: "ESCALA GAD-7 (Ansiedad en las últimas 2 semanas)",
+        tipo: "opcion_unica",
+        opciones: ["Nunca", "Varios días", "Más de la mitad de los días", "Casi todos los días"],
+        requerida: true
+    })),
+    // Relación
+    ...RELACION_QUESTIONS.map((q, i) => ({
+        id: `relacion_${i}`,
+        titulo: q,
+        seccion: "RELACIÓN ENTRE ANSIEDAD, ALIMENTACIÓN Y BIENESTAR",
+        tipo: "opcion_unica",
+        opciones: ["Nunca", "Rara vez", "A veces", "Frecuentemente", "Muy frecuentemente"],
+        requerida: true
+    })),
+    // Percepción
+    ...PERCEPCION_QUESTIONS.map((q, i) => ({
+        id: `percepcion_${i}`,
+        titulo: q,
+        seccion: "PERCEPCIÓN SOBRE SALUD MENTAL Y TRASTORNOS ALIMENTARIOS",
+        tipo: "opcion_unica",
+        opciones: ["Totalmente en desacuerdo", "En desacuerdo", "Neutral", "De acuerdo", "Totalmente de acuerdo"],
+        requerida: true
+    })),
+    // Apoyo
+    {
+        id: "apoyo1",
+        titulo: "¿Buscarías apoyo psicológico si sintieras que tu ansiedad o relación con la alimentación afecta tu bienestar?",
+        seccion: "APOYO Y BIENESTAR",
+        tipo: "opcion_unica",
+        opciones: ["Sí", "No", "No estoy seguro/a"],
+        requerida: true
+    },
+    {
+        id: "apoyo2",
+        titulo: "¿Te gustaría que las instituciones educativas entregaran más apoyo relacionado con salud mental y bienestar estudiantil?",
+        seccion: "APOYO Y BIENESTAR",
+        tipo: "opcion_unica",
+        opciones: ["Sí", "No", "Tal vez"],
+        requerida: true
     }
-    return score;
-}
+];
 
-function getGAD7Interpretation(score: number): string {
-    if (score >= 0 && score <= 4) return "Ansiedad mínima";
-    if (score >= 5 && score <= 9) return "Ansiedad leve";
-    if (score >= 10 && score <= 14) return "Ansiedad moderada";
-    if (score >= 15) return "Ansiedad severa";
-    return "No determinado";
-}
-
-// Función auxiliar para auto-crear la tabla si no existe (robusto e infalible)
-async function ensureTableExists() {
+// Inicializar tablas y autosembrar si están vacías
+async function ensureDbInitialized() {
     try {
+        // 1. Crear tablas
         await sql`
-            CREATE TABLE IF NOT EXISTS respuestas (
+            CREATE TABLE IF NOT EXISTS encuestas (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                consentimiento VARCHAR(10) NOT NULL CHECK (consentimiento = 'Sí'),
-                edad INTEGER NOT NULL CHECK (edad >= 10 AND edad <= 100),
-                genero VARCHAR(50) NOT NULL,
-                carrera VARCHAR(255) NOT NULL,
-                anio_academico VARCHAR(50) NOT NULL,
-                
-                gad7_0 VARCHAR(100) NOT NULL,
-                gad7_1 VARCHAR(100) NOT NULL,
-                gad7_2 VARCHAR(100) NOT NULL,
-                gad7_3 VARCHAR(100) NOT NULL,
-                gad7_4 VARCHAR(100) NOT NULL,
-                gad7_5 VARCHAR(100) NOT NULL,
-                gad7_6 VARCHAR(100) NOT NULL,
-                
-                relacion_0 VARCHAR(100) NOT NULL,
-                relacion_1 VARCHAR(100) NOT NULL,
-                relacion_2 VARCHAR(100) NOT NULL,
-                relacion_3 VARCHAR(100) NOT NULL,
-                relacion_4 VARCHAR(100) NOT NULL,
-                relacion_5 VARCHAR(100) NOT NULL,
-                
-                percepcion_0 VARCHAR(100) NOT NULL,
-                percepcion_1 VARCHAR(100) NOT NULL,
-                percepcion_2 VARCHAR(100) NOT NULL,
-                
-                apoyo_psicologico VARCHAR(100) NOT NULL,
-                apoyo_institucional VARCHAR(100) NOT NULL,
-                
-                gad7_score INTEGER NOT NULL,
-                gad7_level VARCHAR(50) NOT NULL,
+                titulo VARCHAR(255) NOT NULL,
+                descripcion TEXT,
+                slug VARCHAR(255) UNIQUE NOT NULL,
+                activa BOOLEAN DEFAULT TRUE NOT NULL,
+                preguntas JSONB NOT NULL,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
             );
         `;
-        
-        // Crear índices si no existen
-        await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_carrera ON respuestas(carrera);`;
-        await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_anio_academico ON respuestas(anio_academico);`;
-        await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_gad7_level ON respuestas(gad7_level);`;
+
+        await sql`
+            CREATE TABLE IF NOT EXISTS respuestas (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                encuesta_id UUID REFERENCES encuestas(id) ON DELETE CASCADE,
+                consentimiento VARCHAR(10) NOT NULL CHECK (consentimiento = 'Sí'),
+                datos_generales JSONB NOT NULL,
+                respuestas_preguntas JSONB NOT NULL,
+                gad7_score INTEGER,
+                gad7_level VARCHAR(50),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+            );
+        `;
+
+        // Índices
+        await sql`CREATE INDEX IF NOT EXISTS idx_encuestas_slug ON encuestas(slug);`;
+        await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_encuesta_id ON respuestas(encuesta_id);`;
         await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_created_at ON respuestas(created_at);`;
+
+        // 2. Autosembrar la encuesta Flagship si está vacía
+        const surveyCountResult = await sql`SELECT COUNT(*) as count FROM encuestas;`;
+        const count = parseInt(surveyCountResult.rows[0].count || '0');
+
+        if (count === 0) {
+            const defaultPreguntasJson = JSON.stringify(FLAGSHIP_PREGUNTAS);
+            await sql`
+                INSERT INTO encuestas (titulo, descripcion, slug, activa, preguntas)
+                VALUES (
+                    'Mente, Cuerpo y Aula',
+                    'Encuesta sobre ansiedad, alimentación y rendimiento estudiantil en la educación superior.',
+                    'mente-cuerpo-y-aula',
+                    true,
+                    ${defaultPreguntasJson}
+                );
+            `;
+            console.log("Encuesta Flagship 'Mente, Cuerpo y Aula' sembrada con éxito en la base de datos.");
+        }
     } catch (err) {
-        console.error("Error al asegurar la existencia de la tabla respuestas:", err);
+        console.error("Error al inicializar la base de datos:", err);
         throw err;
     }
 }
 
+// OBTENER ESTRUCTURA DE UNA ENCUESTA
+export async function GET(request: Request) {
+    try {
+        await ensureDbInitialized();
+
+        const { searchParams } = new URL(request.url);
+        const slug = searchParams.get('slug') || 'mente-cuerpo-y-aula';
+
+        const result = await sql`
+            SELECT id, titulo, descripcion, slug, activa, preguntas 
+            FROM encuestas 
+            WHERE slug = ${slug} LIMIT 1;
+        `;
+
+        if (result.rows.length === 0) {
+            return NextResponse.json({
+                success: false,
+                error: `No se encontró la encuesta con el enlace: '${slug}'`
+            }, { status: 404 });
+        }
+
+        const survey = result.rows[0];
+
+        if (!survey.activa) {
+            return NextResponse.json({
+                success: false,
+                error: "Esta encuesta se encuentra temporalmente inactiva o cerrada por el administrador.",
+                survey: { titulo: survey.titulo }
+            }, { status: 403 });
+        }
+
+        return NextResponse.json({
+            success: true,
+            survey
+        });
+
+    } catch (error: any) {
+        console.error("Error al obtener encuesta:", error);
+        return NextResponse.json({
+            success: false,
+            error: "Error de conexión o la base de datos no está disponible.",
+            details: error.message
+        }, { status: 500 });
+    }
+}
+
+// ENVIAR RESPUESTA A UNA ENCUESTA
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
+        await ensureDbInitialized();
 
+        const body = await request.json();
         const {
+            encuestaId,
             consentimiento,
-            edad,
-            genero,
-            carrera,
-            anio,
-            apoyo1,
-            apoyo2
+            datosGenerales, // {edad, genero, carrera, anio}
+            respuestasPreguntas // {"gad7_0": "Nunca", ...}
         } = body;
 
-        // Validación ética: Si el consentimiento es "No", retornamos éxito pero sin guardar
+        if (!encuestaId || !consentimiento) {
+            return NextResponse.json({
+                success: false,
+                error: "Falta el ID de la encuesta o el consentimiento de participación."
+            }, { status: 400 });
+        }
+
+        // Validación ética: Si declinan participar, devolvemos éxito pero sin guardar nada en BD
         if (consentimiento === "No") {
             return NextResponse.json({
                 success: true,
-                message: "Formulario finalizado. Respetamos tu decisión de no participar, ningún dato fue guardado.",
-                score: 0,
+                message: "Has decidido no participar. Respetamos tu decisión, no se guardaron datos.",
+                score: null,
                 level: "No participado"
             });
         }
 
-        // Validación básica
-        if (!edad || !genero || !carrera || !anio) {
+        if (!datosGenerales || !datosGenerales.edad || !datosGenerales.genero || !datosGenerales.carrera || !datosGenerales.anio) {
             return NextResponse.json({
                 success: false,
-                error: "Faltan completar campos obligatorios de datos generales."
+                error: "Faltan rellenar los datos demográficos obligatorios."
             }, { status: 400 });
         }
 
-        // Cálculos seguros del lado del servidor
-        const gad7Score = calculateGAD7Score(body);
-        const gad7Level = getGAD7Interpretation(gad7Score);
+        // Determinar si aplica el cálculo de GAD-7 (Ansiedad)
+        // Se calcula si las 7 preguntas están presentes en las respuestas
+        let gad7Score: number | null = null;
+        let gad7Level: string | null = null;
 
-        // Asegurar que la tabla existe en Postgres
-        await ensureTableExists();
+        let hasAllGad7 = true;
+        let tempScore = 0;
+        for (let i = 0; i < 7; i++) {
+            const ans = respuestasPreguntas[`gad7_${i}`];
+            if (ans === undefined) {
+                hasAllGad7 = false;
+                break;
+            }
+            if (ans === "Varios días") tempScore += 1;
+            if (ans === "Más de la mitad de los días") tempScore += 2;
+            if (ans === "Casi todos los días") tempScore += 3;
+        }
 
-        // Extraer respuestas individuales
-        const gad7_0 = body.gad7_0 || "";
-        const gad7_1 = body.gad7_1 || "";
-        const gad7_2 = body.gad7_2 || "";
-        const gad7_3 = body.gad7_3 || "";
-        const gad7_4 = body.gad7_4 || "";
-        const gad7_5 = body.gad7_5 || "";
-        const gad7_6 = body.gad7_6 || "";
+        if (hasAllGad7) {
+            gad7Score = tempScore;
+            if (gad7Score >= 0 && gad7Score <= 4) gad7Level = "Ansiedad mínima";
+            else if (gad7Score >= 5 && gad7Score <= 9) gad7Level = "Ansiedad leve";
+            else if (gad7Score >= 10 && gad7Score <= 14) gad7Level = "Ansiedad moderada";
+            else if (gad7Score >= 15) gad7Level = "Ansiedad severa";
+        }
 
-        const relacion_0 = body.relacion_0 || "";
-        const relacion_1 = body.relacion_1 || "";
-        const relacion_2 = body.relacion_2 || "";
-        const relacion_3 = body.relacion_3 || "";
-        const relacion_4 = body.relacion_4 || "";
-        const relacion_5 = body.relacion_5 || "";
+        // Insertar respuesta en formato JSONB
+        const datosGeneralesJson = JSON.stringify(datosGenerales);
+        const respuestasPreguntasJson = JSON.stringify(respuestasPreguntas);
 
-        const percepcion_0 = body.percepcion_0 || "";
-        const percepcion_1 = body.percepcion_1 || "";
-        const percepcion_2 = body.percepcion_2 || "";
-
-        // Insertar registro en la base de datos
         await sql`
             INSERT INTO respuestas (
+                encuesta_id,
                 consentimiento,
-                edad,
-                genero,
-                carrera,
-                anio_academico,
-                gad7_0, gad7_1, gad7_2, gad7_3, gad7_4, gad7_5, gad7_6,
-                relacion_0, relacion_1, relacion_2, relacion_3, relacion_4, relacion_5,
-                percepcion_0, percepcion_1, percepcion_2,
-                apoyo_psicologico,
-                apoyo_institucional,
+                datos_generales,
+                respuestas_preguntas,
                 gad7_score,
                 gad7_level
             ) VALUES (
+                ${encuestaId},
                 ${consentimiento},
-                ${parseInt(edad)},
-                ${genero},
-                ${carrera},
-                ${anio},
-                ${gad7_0}, ${gad7_1}, ${gad7_2}, ${gad7_3}, ${gad7_4}, ${gad7_5}, ${gad7_6},
-                ${relacion_0}, ${relacion_1}, ${relacion_2}, ${relacion_3}, ${relacion_4}, ${relacion_5},
-                ${percepcion_0}, ${percepcion_1}, ${percepcion_2},
-                ${apoyo1},
-                ${apoyo2},
+                ${datosGeneralesJson},
+                ${respuestasPreguntasJson},
                 ${gad7Score},
                 ${gad7Level}
             );
@@ -166,26 +265,25 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
             success: true,
-            message: "¡Respuestas guardadas exitosamente en la base de datos!",
+            message: "¡Muchas gracias! Respuestas guardadas en la plataforma de manera segura.",
             score: gad7Score,
             level: gad7Level
         });
 
     } catch (error: any) {
-        console.error("Error en API de Encuesta:", error);
+        console.error("Error al procesar envío de respuestas:", error);
         
-        // Mensaje amigable para el caso en el que no hayan conectado la BD en Vercel
         if (error.message && (error.message.includes("relation") || error.message.includes("ENOTFOUND") || error.message.includes("connection"))) {
             return NextResponse.json({
                 success: false,
-                error: "No se pudo conectar a la base de datos. Por favor, asegúrate de haber enlazado la base de datos de Vercel Postgres y configurado las variables de entorno en Vercel.",
+                error: "Error de base de datos. Por favor enlaza tu base de datos de Vercel Postgres.",
                 details: error.message
             }, { status: 500 });
         }
 
         return NextResponse.json({
             success: false,
-            error: "Hubo un problema interno en el servidor al procesar la encuesta.",
+            error: "Error interno al registrar las respuestas.",
             details: error.message
         }, { status: 500 });
     }
