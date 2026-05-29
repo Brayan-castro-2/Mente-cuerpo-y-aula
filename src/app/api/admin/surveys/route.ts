@@ -154,3 +154,58 @@ export async function PATCH(request: Request) {
         }, { status: 500 });
     }
 }
+
+// ACTUALIZAR UNA ENCUESTA EXISTENTE
+export async function PUT(request: Request) {
+    try {
+        if (!checkAuth(request)) {
+            return NextResponse.json({ success: false, error: "No autorizado." }, { status: 401 });
+        }
+
+        const body = await request.json();
+        const { id, titulo, descripcion, slug, preguntas } = body;
+
+        if (!id || !titulo || !slug || !preguntas || !Array.isArray(preguntas)) {
+            return NextResponse.json({
+                success: false,
+                error: "Faltan rellenar campos obligatorios (Título, Enlace o Preguntas)."
+            }, { status: 400 });
+        }
+
+        const sanitizedSlug = slug
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9-_]/g, '-')
+            .replace(/-+/g, '-');
+
+        // Validar que el slug no esté ocupado por otra encuesta (excepto ella misma)
+        const slugCheck = await sql`SELECT id FROM encuestas WHERE slug = ${sanitizedSlug} AND id <> ${id} LIMIT 1;`;
+        if (slugCheck.rows.length > 0) {
+            return NextResponse.json({
+                success: false,
+                error: `El enlace '/survey/${sanitizedSlug}' ya se encuentra ocupado por otra encuesta. Por favor utiliza un enlace único.`
+            }, { status: 400 });
+        }
+
+        const preguntasJson = JSON.stringify(preguntas);
+
+        await sql`
+            UPDATE encuestas
+            SET titulo = ${titulo}, descripcion = ${descripcion}, slug = ${sanitizedSlug}, preguntas = ${preguntasJson}
+            WHERE id = ${id};
+        `;
+
+        return NextResponse.json({
+            success: true,
+            message: "¡Encuesta modificada y guardada con éxito en la plataforma!"
+        });
+
+    } catch (error: any) {
+        console.error("Error al modificar encuesta:", error);
+        return NextResponse.json({
+            success: false,
+            error: formatDbError(error, "Error interno del servidor al actualizar la encuesta."),
+            details: error.message
+        }, { status: 500 });
+    }
+}

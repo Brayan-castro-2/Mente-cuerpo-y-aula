@@ -71,6 +71,8 @@ export default function AdminDashboard() {
 
     // Constructor de Encuestas
     const [showCreator, setShowCreator] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editId, setEditId] = useState("");
     const [newTitle, setNewTitle] = useState("");
     const [newDesc, setNewDesc] = useState("");
     const [newSlug, setNewSlug] = useState("");
@@ -292,6 +294,17 @@ export default function AdminDashboard() {
         }));
     };
 
+    const handleStartEdit = (survey: Survey) => {
+        setNewTitle(survey.titulo);
+        setNewDesc(survey.descripcion || "");
+        setNewSlug(survey.slug);
+        setNewQuestions(survey.preguntas);
+        setEditId(survey.id);
+        setIsEditing(true);
+        setShowCreator(true);
+        window.scrollTo(0, 0);
+    };
+
     const handleSaveNewSurvey = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -308,31 +321,40 @@ export default function AdminDashboard() {
         }
 
         try {
-            const res = await fetch('/api/admin/surveys', {
-                method: 'POST',
+            const url = '/api/admin/surveys';
+            const method = isEditing ? 'PUT' : 'POST';
+            const payload = isEditing 
+                ? { id: editId, titulo: newTitle, descripcion: newDesc, slug: newSlug, preguntas: newQuestions }
+                : { titulo: newTitle, descripcion: newDesc, slug: newSlug, preguntas: newQuestions };
+
+            const res = await fetch(url, {
+                method,
                 headers: {
                     'Authorization': password,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    titulo: newTitle,
-                    descripcion: newDesc,
-                    slug: newSlug,
-                    preguntas: newQuestions
-                })
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             
             if (res.ok && data.success) {
                 showToast("success", data.message);
                 refreshSurveys();
-                setSelectedSurveyId(data.survey.id);
+                
+                if (isEditing) {
+                    setSelectedSurveyId(editId);
+                } else if (data.survey?.id) {
+                    setSelectedSurveyId(data.survey.id);
+                }
+
                 // Resetear constructor
                 setNewTitle("");
                 setNewDesc("");
                 setNewSlug("");
                 setNewQuestions([{ id: "q_1", titulo: "¿Ejemplo de pregunta?", tipo: "opcion_unica", opciones: ["Sí", "No"], requerida: true }]);
                 setShowCreator(false);
+                setIsEditing(false);
+                setEditId("");
             } else {
                 showToast("danger", data.error);
             }
@@ -501,7 +523,9 @@ export default function AdminDashboard() {
                 {/* 1. SECCIÓN: CONSTRUCTOR DE ENCUESTAS DINÁMICAS */}
                 {showCreator && (
                     <div className="card shadow-sm border-0 mb-4 p-4">
-                        <h3 className="fw-normal text-purple-700 mb-3 border-bottom pb-2">Constructor de Encuesta Dinámica</h3>
+                        <h3 className="fw-normal text-purple-700 mb-3 border-bottom pb-2">
+                            {isEditing ? 'Editar Encuesta Existente' : 'Constructor de Encuesta Dinámica'}
+                        </h3>
                         <form onSubmit={handleSaveNewSurvey}>
                             <div className="row mb-3">
                                 <div className="col-md-6 mb-2">
@@ -616,8 +640,10 @@ export default function AdminDashboard() {
                             <div className="d-flex justify-content-between mt-4">
                                 <button type="button" onClick={handleAddQuestion} className="btn btn-sm btn-outline-purple" style={{ color: '#8b5cf6', borderColor: '#8b5cf6' }}>+ Añadir Otra Pregunta</button>
                                 <div className="d-flex">
-                                    <button type="button" onClick={() => setShowCreator(false)} className="btn btn-sm btn-outline-secondary me-2">Cancelar</button>
-                                    <button type="submit" className="btn btn-sm text-white" style={{ background: '#8b5cf6' }}>Activar Encuesta en la Web</button>
+                                    <button type="button" onClick={() => { setShowCreator(false); setIsEditing(false); }} className="btn btn-sm btn-outline-secondary me-2">Cancelar</button>
+                                    <button type="submit" className="btn btn-sm text-white" style={{ background: '#8b5cf6' }}>
+                                        {isEditing ? 'Guardar Cambios de la Encuesta' : 'Activar Encuesta en la Web'}
+                                    </button>
                                 </div>
                             </div>
                         </form>
@@ -646,6 +672,17 @@ export default function AdminDashboard() {
                                     <a href={activeSurvey.slug === 'mente-cuerpo-y-aula' ? '/' : `/survey/${activeSurvey.slug}`} target="_blank" className="btn btn-sm btn-outline-secondary px-3 py-2">
                                         Abrir Formulario Estudiante
                                     </a>
+                                    <button 
+                                        onClick={() => handleStartEdit(activeSurvey)} 
+                                        className="btn btn-sm text-white px-3 py-2" 
+                                        style={{ background: '#8b5cf6' }}
+                                    >
+                                        <svg className="bi bi-pencil-square me-1" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+                                            <path fillRule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
+                                        </svg>
+                                        Editar Cuestionario
+                                    </button>
                                     <button 
                                         onClick={() => handleToggleSurvey(activeSurvey.id, activeSurvey.activa)} 
                                         className={`btn btn-sm ${activeSurvey.activa ? 'btn-outline-warning' : 'btn-success'} px-3 py-2`}
