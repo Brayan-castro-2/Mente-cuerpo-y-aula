@@ -71,6 +71,61 @@ const FLAGSHIP_PREGUNTAS = [
         tipo: "opcion_unica",
         opciones: ["Sí", "No", "Tal vez"],
         requerida: true
+    },
+    // Preguntas adicionales solicitadas
+    {
+        id: "relacion_6",
+        titulo: "Ante la presión académica, ¿priorizas el rendimiento inmediato (nota/entrega) sobre la satisfacción de tus necesidades fisiológicas básicas (comer, dormir, hidratarse)?",
+        seccion: "RELACIÓN ENTRE ANSIEDAD, ALIMENTACIÓN Y BIENESTAR",
+        tipo: "opcion_unica",
+        opciones: ["Siempre", "Frecuentemente", "A veces", "Rara vez", "Nunca"],
+        requerida: true
+    },
+    {
+        id: "relacion_7",
+        titulo: "Al identificar un aumento en tus niveles de ansiedad, ¿qué conducta realizas primero?",
+        seccion: "RELACIÓN ENTRE ANSIEDAD, ALIMENTACIÓN Y BIENESTAR",
+        tipo: "opcion_unica",
+        opciones: [
+            "Aumentar la ingesta de alimentos (picoteo)", 
+            "Suprimir la ingesta (pérdida de apetito)", 
+            "Aumentar el consumo de estimulantes (café/bebidas)", 
+            "Realizar actividad física", 
+            "Aislarme y dejar de comer"
+        ],
+        requerida: true
+    },
+    {
+        id: "relacion_8",
+        titulo: "¿Con qué frecuencia experimentas síntomas físicos que asocias directamente a la carga académica? (Gastritis, tensión muscular, cefaleas, taquicardia).",
+        seccion: "RELACIÓN ENTRE ANSIEDAD, ALIMENTACIÓN Y BIENESTAR",
+        tipo: "opcion_unica",
+        opciones: ["Siempre", "Frecuentemente", "A veces", "Rara vez", "Nunca"],
+        requerida: true
+    },
+    {
+        id: "relacion_9",
+        titulo: "¿Sientes que tu nivel de energía es suficiente para cumplir con tus obligaciones académicas sin depender de estimulantes (café, bebidas energéticas, fármacos)?",
+        seccion: "RELACIÓN ENTRE ANSIEDAD, ALIMENTACIÓN Y BIENESTAR",
+        tipo: "opcion_unica",
+        opciones: ["Siempre", "Frecuentemente", "A veces", "Rara vez", "Nunca"],
+        requerida: true
+    },
+    {
+        id: "percepcion_3",
+        titulo: "¿Sientes que en tu carrera existe una cultura donde \"aguantar hambre o sueño\" es visto como parte del compromiso académico?",
+        seccion: "PERCEPCIÓN SOBRE SALUD MENTAL Y TRASTORNOS ALIMENTARIOS",
+        tipo: "opcion_unica",
+        opciones: ["Sí", "No", "Tal vez"],
+        requerida: true
+    },
+    {
+        id: "apoyo3",
+        titulo: "Si tuvieras que priorizar, ¿qué pondrías primero: el rendimiento académico (calificaciones) o tu salud física/mental?",
+        seccion: "APOYO Y BIENESTAR",
+        tipo: "opcion_unica",
+        opciones: ["Rendimiento académico (calificaciones)", "Tu salud física/mental", "Ambos por igual"],
+        requerida: true
     }
 ];
 
@@ -114,12 +169,12 @@ async function ensureDbInitialized() {
         await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_encuesta_id ON respuestas(encuesta_id);`;
         await sql`CREATE INDEX IF NOT EXISTS idx_respuestas_created_at ON respuestas(created_at);`;
 
-        // 2. Autosembrar la encuesta Flagship si está vacía
+        // 2. Autosembrar la encuesta Flagship si está vacía, o actualizarla si ya existe
         const surveyCountResult = await sql`SELECT COUNT(*) as count FROM encuestas;`;
         const count = parseInt(surveyCountResult.rows[0].count || '0');
+        const defaultPreguntasJson = JSON.stringify(FLAGSHIP_PREGUNTAS);
 
         if (count === 0) {
-            const defaultPreguntasJson = JSON.stringify(FLAGSHIP_PREGUNTAS);
             await sql`
                 INSERT INTO encuestas (titulo, descripcion, categoria, slug, activa, preguntas)
                 VALUES (
@@ -132,6 +187,13 @@ async function ensureDbInitialized() {
                 );
             `;
             console.log("Encuesta Flagship 'Mente, Cuerpo y Aula' sembrada con éxito en la base de datos.");
+        } else {
+            await sql`
+                UPDATE encuestas 
+                SET preguntas = ${defaultPreguntasJson} 
+                WHERE slug = 'mente-cuerpo-y-aula';
+            `;
+            console.log("Estructura de la encuesta flagship 'Mente, Cuerpo y Aula' actualizada con éxito en la base de datos.");
         }
     } catch (err) {
         console.error("Error al inicializar la base de datos:", err);
