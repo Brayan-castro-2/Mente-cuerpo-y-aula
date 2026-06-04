@@ -31,6 +31,9 @@ interface ResponseItem {
         genero: string;
         carrera: string;
         anio: string;
+        situacionLaboral?: string;
+        titulado?: string;
+        originalCarrera?: string;
     };
     respuestas_preguntas: Record<string, string>;
     gad7_score: number | null;
@@ -51,6 +54,8 @@ interface Metrics {
     };
     topCareers: { name: string; count: number }[];
     yearDist: { name: string; count: number }[];
+    estudiantesCount?: number;
+    tituladosCount?: number;
 }
 
 export default function AdminDashboard() {
@@ -401,7 +406,17 @@ export default function AdminDashboard() {
             
             const matchCareer = filterCareer === "TODAS" || dg.carrera === filterCareer;
             const matchAnxiety = filterAnxiety === "TODOS" || r.gad7_level === filterAnxiety;
-            const matchYear = filterYear === "TODOS" || dg.anio === filterYear;
+            const normalizeYearValue = (y: string): string => {
+                if (!y) return "";
+                const val = y.replace('°', '').replace(' año', '').trim();
+                if (val === '1' || val === '2' || val === '3' || val === '4') {
+                    return `${val}° año`;
+                }
+                return "Otro";
+            };
+            const matchYear = filterYear === "TODOS" || 
+                dg.anio === filterYear ||
+                (normalizeYearValue(dg.anio) === filterYear);
             
             const matchSearch = searchQuery.trim() === "" || 
                 (dg.carrera && dg.carrera.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -429,10 +444,10 @@ export default function AdminDashboard() {
         const currentSurvey = surveys.find(s => s.id === selectedSurveyId);
         if (!currentSurvey) return;
 
-        // Cabeceras básicas + preguntas dinámicas
-        const headers = ["ID de Respuesta", "Fecha de Envío", "Edad", "Género", "Carrera", "Año Académico", "Puntaje GAD-7", "Nivel de Ansiedad"];
+        // Cabeceras básicas + preguntas dinámicas + comentarios
+        const headers = ["ID de Respuesta", "Fecha de Envío", "Edad", "Género", "¿Titulado/a?", "Escuela / Carrera", "Año Académico", "Situación Ocupacional", "Puntaje GAD-7", "Nivel de Ansiedad"];
         const questionHeaders = currentSurvey.preguntas.map(q => q.titulo.replace(/,/g, ' '));
-        const allHeaders = [...headers, ...questionHeaders];
+        const allHeaders = [...headers, ...questionHeaders, "Comentarios Adicionales"];
 
         // Filas de datos
         const rows = activeData.map(r => {
@@ -442,8 +457,10 @@ export default function AdminDashboard() {
                 new Date(r.created_at).toLocaleString('es-CL'),
                 dg.edad,
                 dg.genero,
-                dg.carrera.replace(/,/g, ' '),
-                dg.anio,
+                dg.titulado || "No",
+                dg.carrera ? dg.carrera.replace(/,/g, ' ') : 'N/A',
+                dg.titulado === "Sí" ? "N/A (Titulado)" : (dg.anio ? (dg.anio.includes('año') ? dg.anio : `${dg.anio}° año`) : 'N/A'),
+                dg.situacionLaboral ? dg.situacionLaboral.replace(/,/g, ' ') : 'Solo estudia',
                 r.gad7_score !== null ? r.gad7_score : "N/A",
                 r.gad7_level !== null ? r.gad7_level : "N/A"
             ];
@@ -453,7 +470,10 @@ export default function AdminDashboard() {
                 return ans.replace(/,/g, ' ').replace(/\n/g, ' ');
             });
 
-            return [...basicData, ...surveyAnswers];
+            const comments = r.respuestas_preguntas["comentarios_adicionales"] || "";
+            const sanitizedComments = comments.replace(/,/g, ' ').replace(/\n/g, ' ');
+
+            return [...basicData, ...surveyAnswers, sanitizedComments];
         });
 
         const csvContent = "\uFEFF" + [
@@ -945,7 +965,13 @@ export default function AdminDashboard() {
                                         <div className="card shadow-sm border-0 border-start border-purple border-3 p-3 h-100 bg-white" style={{ borderLeftColor: '#8b5cf6 !important' }}>
                                             <span className="text-muted small text-uppercase fw-semibold">Respuestas Recibidas</span>
                                             <h2 className="fw-bold mt-2 mb-0" style={{ color: '#1e1b4b' }}>{metrics.total}</h2>
-                                            <span className="text-success small mt-1">100% consentidas</span>
+                                            {metrics.estudiantesCount !== undefined && metrics.tituladosCount !== undefined ? (
+                                                <span className="text-muted small mt-1">
+                                                    <span className="text-success fw-semibold">{metrics.estudiantesCount}</span> est. / <span className="text-info fw-semibold">{metrics.tituladosCount}</span> tit.
+                                                </span>
+                                            ) : (
+                                                <span className="text-success small mt-1">100% consentidas</span>
+                                            )}
                                         </div>
                                     </div>
                                     <div className="col-md-3 col-sm-6">
@@ -1195,7 +1221,7 @@ export default function AdminDashboard() {
                                                                 <td>{dg.edad}</td>
                                                                 <td>{dg.genero}</td>
                                                                 <td className="text-truncate" style={{ maxWidth: '200px' }}>{dg.carrera}</td>
-                                                                <td>{dg.anio}</td>
+                                                                <td>{dg.titulado === "Sí" ? <span className="badge bg-info-subtle text-info border">Titulado</span> : (dg.anio ? (dg.anio.includes('año') ? dg.anio : `${dg.anio}° año`) : "")}</td>
                                                                 <td className="text-center fw-bold">{row.gad7_score !== null ? row.gad7_score : "-"}</td>
                                                                 <td>
                                                                     <span className={`badge ${badgeClass} border px-2.5 py-1.5`} style={row.gad7_level === "Ansiedad moderada" ? { backgroundColor: '#ffedd5', color: '#ea580c', borderColor: '#fed7aa' } : {}}>
@@ -1472,13 +1498,40 @@ export default function AdminDashboard() {
                                             <span className="text-muted d-block small">Género:</span>
                                             <strong className="text-dark">{activeResponse.datos_generales?.genero}</strong>
                                         </div>
-                                        <div className="col-12 col-sm-4">
-                                            <span className="text-muted d-block small">Carrera:</span>
-                                            <strong className="text-dark text-wrap">{activeResponse.datos_generales?.carrera}</strong>
+                                        <div className="col-6 col-sm-3">
+                                            <span className="text-muted d-block small">Estado Académico:</span>
+                                            <strong className="text-dark">
+                                                {activeResponse.datos_generales?.titulado === "Sí" ? "Titulado/a" : "Estudiante"}
+                                            </strong>
                                         </div>
-                                        <div className="col-6 col-sm-2">
-                                            <span className="text-muted d-block small">Año Académico:</span>
-                                            <strong className="text-dark">{activeResponse.datos_generales?.anio}</strong>
+                                        <div className="col-6 col-sm-3">
+                                             <span className="text-muted d-block small">Año Académico:</span>
+                                             <strong className="text-dark">
+                                                 {activeResponse.datos_generales?.titulado === "Sí" ? (
+                                                     <span className="text-muted italic">N/A (Titulado)</span>
+                                                 ) : (
+                                                     activeResponse.datos_generales?.anio ? 
+                                                         (activeResponse.datos_generales.anio.includes('año') ? 
+                                                             activeResponse.datos_generales.anio : 
+                                                             `${activeResponse.datos_generales.anio}° año`) : 
+                                                         ""
+                                                 )}
+                                             </strong>
+                                         </div>
+                                        <div className="col-12 col-sm-6">
+                                            <span className="text-muted d-block small">Escuela / Carrera:</span>
+                                            <strong className="text-dark text-wrap">
+                                                {activeResponse.datos_generales?.carrera}
+                                                {activeResponse.datos_generales?.originalCarrera && (
+                                                    <span className="text-muted d-block small font-normal italic">
+                                                        (Original: {activeResponse.datos_generales.originalCarrera})
+                                                    </span>
+                                                )}
+                                            </strong>
+                                        </div>
+                                        <div className="col-12 col-sm-6">
+                                            <span className="text-muted d-block small">Situación Ocupacional:</span>
+                                            <strong className="text-dark">{activeResponse.datos_generales?.situacionLaboral || "Solo estudia"}</strong>
                                         </div>
                                     </div>
                                     {activeResponse.gad7_score !== null && (
@@ -1513,6 +1566,12 @@ export default function AdminDashboard() {
                                         );
                                     })}
                                 </div>
+                                {activeResponse.respuestas_preguntas["comentarios_adicionales"] && (
+                                    <div className="mt-4 p-3 rounded border" style={{ backgroundColor: 'rgba(139, 92, 246, 0.05)', borderColor: 'rgba(139, 92, 246, 0.15)' }}>
+                                        <h6 className="fw-bold text-purple mb-2" style={{ color: '#8b5cf6', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Comentarios o Sugerencias Adicionales</h6>
+                                        <p className="m-0 text-dark font-medium" style={{ whiteSpace: 'pre-wrap' }}>{activeResponse.respuestas_preguntas["comentarios_adicionales"]}</p>
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="modal-footer bg-light py-2">

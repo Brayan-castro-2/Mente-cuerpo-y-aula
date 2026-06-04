@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
 
 const GAD7_QUESTIONS = [
-    "1. Sentirse nervioso/a, ansioso/a o muy alterado/a.",
-    "2. No poder dejar de preocuparse o controlar las preocupaciones.",
-    "3. Preocuparse demasiado por diferentes situaciones.",
-    "4. Tener dificultad para relajarse.",
-    "5. Sentirse tan inquieto/a que es difícil quedarse quieto/a.",
-    "6. Irritarse o molestarse fácilmente.",
+    "1. Sentirse nervioso/a, intranquilo/a o con los nervios de punta.",
+    "2. No poder dejar de preocuparse o no poder controlar la preocupación.",
+    "3. Preocuparse demasiado por diferentes cosas.",
+    "4. Dificultad para relajarse.",
+    "5. Estar tan inquieto/a que es difícil permanecer sentado/a tranquilamente.",
+    "6. Molestarse o ponerse irritable fácilmente.",
     "7. Sentir miedo como si algo terrible pudiera pasar."
 ];
 

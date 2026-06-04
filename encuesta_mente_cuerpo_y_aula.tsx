@@ -67,6 +67,9 @@ export default function App() {
         genero: "",
         carrera: "",
         anio: "",
+        situacionLaboral: "",
+        comentarios: "",
+        titulado: "No",
         // GAD-7
         ...Object.fromEntries(GAD7_QUESTIONS.map((_, i) => [`gad7_${i}`, ""])),
         // Relación
@@ -111,7 +114,7 @@ export default function App() {
     const handleReset = () => {
         setSubmitted(false);
         setFormData({
-            consentimiento: "", edad: "", genero: "", carrera: "", anio: "",
+            consentimiento: "", edad: "", genero: "", carrera: "", anio: "", situacionLaboral: "", comentarios: "", titulado: "No",
             ...Object.fromEntries(GAD7_QUESTIONS.map((_, i) => [`gad7_${i}`, ""])),
             ...Object.fromEntries(RELACION_QUESTIONS.map((_, i) => [`relacion_${i}`, ""])),
             ...Object.fromEntries(PERCEPCION_QUESTIONS.map((_, i) => [`percepcion_${i}`, ""])),
@@ -158,8 +161,10 @@ export default function App() {
                         <ul className="space-y-2 text-gray-700">
                             <li><strong>Edad:</strong> {formData.edad}</li>
                             <li><strong>Género:</strong> {formData.genero}</li>
-                            <li><strong>Carrera:</strong> {formData.carrera}</li>
-                            <li><strong>Año académico:</strong> {formData.anio}</li>
+                            <li><strong>¿Se encuentra titulado/a?:</strong> {formData.titulado}</li>
+                            <li><strong>Escuela:</strong> {formData.carrera}</li>
+                            {formData.titulado === "No" && <li><strong>Año académico:</strong> {formData.anio ? (formData.anio.includes('año') ? formData.anio : `${formData.anio}° año`) : ""}</li>}
+                            <li><strong>Situación Ocupacional:</strong> {formData.situacionLaboral}</li>
                         </ul>
                     </div>
 
@@ -197,6 +202,12 @@ export default function App() {
                                 <div className="text-purple-600 font-semibold">{formData.apoyo2}</div>
                             </li>
                         </ul>
+                        {formData.comentarios && (
+                            <div className="bg-purple-50/50 p-3 rounded border border-purple-100 text-sm mt-4">
+                                <div className="font-semibold text-purple-700 text-xs mb-1 uppercase tracking-wider">Comentarios o Sugerencias Adicionales</div>
+                                <div className="text-purple-900 font-semibold">{formData.comentarios}</div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="text-center mt-8 pb-10">
@@ -265,22 +276,58 @@ export default function App() {
                                 />
                             </QuestionCard>
 
-                            <QuestionCard title="Carrera">
-                                <input 
-                                    type="text" 
+                            <QuestionCard title="Escuela">
+                                <select 
                                     name="carrera" 
                                     value={formData.carrera} 
                                     onChange={handleChange} 
                                     required
-                                    placeholder="Tu respuesta"
                                     className="w-full sm:w-2/3 border-b-2 border-gray-300 focus:border-purple-600 outline-none pb-1 pt-2 transition duration-200 text-gray-800 bg-transparent"
+                                >
+                                    <option value="" disabled>Seleccione su escuela</option>
+                                    <option value="Escuela de Salud">Escuela de Salud</option>
+                                    <option value="Escuela de Telecomunicaciones">Escuela de Telecomunicaciones</option>
+                                    <option value="Escuela de Informática">Escuela de Informática</option>
+                                    <option value="Escuela de Administración y Negocios">Escuela de Administración y Negocios</option>
+                                    <option value="Escuela de Ingeniería">Escuela de Ingeniería</option>
+                                    <option value="Escuela de Construcción">Escuela de Construcción</option>
+                                    <option value="Escuela de Diseño">Escuela de Diseño</option>
+                                    <option value="Escuela de Gastronomía">Escuela de Gastronomía</option>
+                                    <option value="Escuela de Recursos Naturales">Escuela de Recursos Naturales</option>
+                                    <option value="Escuela de Turismo">Escuela de Turismo</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </QuestionCard>
+
+                            <QuestionCard title="¿Se encuentra titulado/a?">
+                                <RadioGroup 
+                                    name="titulado" 
+                                    options={["No", "Sí"]} 
+                                    formData={formData}
+                                    handleChange={handleChange}
                                 />
                             </QuestionCard>
 
-                            <QuestionCard title="Año académico">
+                            {formData.titulado === "No" && (
+                                <QuestionCard title="Año académico">
+                                    <input 
+                                        type="number" 
+                                        name="anio" 
+                                        value={formData.anio} 
+                                        onChange={handleChange} 
+                                        required={formData.titulado === "No"}
+                                        min="1"
+                                        max="10"
+                                        placeholder="Tu respuesta (ej: 1, 2, 3...)"
+                                        className="w-full sm:w-1/2 border-b-2 border-gray-300 focus:border-purple-600 outline-none pb-1 pt-2 transition duration-200 text-gray-800 bg-transparent"
+                                    />
+                                </QuestionCard>
+                            )}
+
+                            <QuestionCard title="Situación Ocupacional">
                                 <RadioGroup 
-                                    name="anio" 
-                                    options={["1° año", "2° año", "3° año", "4° año", "Otro"]} 
+                                    name="situacionLaboral" 
+                                    options={["Solo estudia", "Estudia y trabaja", "Solo trabaja"]} 
                                     formData={formData}
                                     handleChange={handleChange}
                                 />
@@ -363,6 +410,24 @@ export default function App() {
                             </QuestionCard>
 
                             {}
+                            {/* Sección opcional de comentarios al final de todo el formulario */}
+                            <div className="mt-8">
+                                <QuestionCard title="¿Deseas agregar algún comentario o sugerencia adicional?" isRequired={false}>
+                                    <textarea
+                                        name="comentarios"
+                                        value={formData.comentarios}
+                                        onChange={handleChange}
+                                        maxLength={2000}
+                                        placeholder="Si tienes alguna duda, sugerencia o comentario sobre la encuesta, escríbelo aquí..."
+                                        rows={4}
+                                        className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:border-purple-600 transition duration-200 text-gray-800 bg-transparent"
+                                    />
+                                    <div className="text-right text-xs text-gray-400 mt-1">
+                                        {formData.comentarios.length} / 2000 caracteres
+                                    </div>
+                                </QuestionCard>
+                            </div>
+
                             <div className="flex justify-between items-center mt-8 mb-12">
                                 <button 
                                     type="submit" 

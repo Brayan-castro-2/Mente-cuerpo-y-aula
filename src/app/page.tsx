@@ -83,6 +83,9 @@ export default function HomeSurvey() {
     const [genero, setGenero] = useState("");
     const [carrera, setCarrera] = useState("");
     const [anio, setAnio] = useState("");
+    const [situacionLaboral, setSituacionLaboral] = useState("");
+    const [comentarios, setComentarios] = useState("");
+    const [titulado, setTitulado] = useState("No");
     const [respuestasPreguntas, setRespuestasPreguntas] = useState<Record<string, string>>({});
 
     // Cargar encuesta de la BD
@@ -140,9 +143,14 @@ export default function HomeSurvey() {
                         edad,
                         genero,
                         carrera,
-                        anio
+                        anio: titulado === "Sí" ? "" : anio,
+                        situacionLaboral,
+                        titulado
                     },
-                    respuestasPreguntas
+                    respuestasPreguntas: {
+                        ...respuestasPreguntas,
+                        comentarios_adicionales: comentarios
+                    }
                 }),
             });
 
@@ -175,6 +183,9 @@ export default function HomeSurvey() {
         setGenero("");
         setCarrera("");
         setAnio("");
+        setSituacionLaboral("");
+        setComentarios("");
+        setTitulado("No");
         if (survey) {
             const initialRespuestas: Record<string, string> = {};
             survey.preguntas.forEach((q: Question) => {
@@ -331,8 +342,10 @@ export default function HomeSurvey() {
                         <ul className="space-y-2 text-gray-700">
                             <li><strong>Edad:</strong> {edad} años</li>
                             <li><strong>Género:</strong> {genero}</li>
-                            <li><strong>Carrera:</strong> {carrera}</li>
-                            <li><strong>Año académico:</strong> {anio}</li>
+                            <li><strong>¿Se encuentra titulado/a?:</strong> {titulado}</li>
+                            <li><strong>Escuela:</strong> {carrera}</li>
+                            {titulado === "No" && <li><strong>Año académico:</strong> {anio ? (anio.includes('año') ? anio : `${anio}° año`) : ""}</li>}
+                            <li><strong>Situación Ocupacional:</strong> {situacionLaboral}</li>
                         </ul>
                     </div>
 
@@ -351,6 +364,12 @@ export default function HomeSurvey() {
                                     </div>
                                 );
                             })}
+                            {comentarios && (
+                                <div className="bg-purple-50/50 p-3 rounded border border-purple-100 text-sm">
+                                    <div className="font-semibold text-purple-700 text-xs mb-1 uppercase tracking-wider">Comentarios o Sugerencias Adicionales</div>
+                                    <div className="text-purple-900 font-semibold">{comentarios}</div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -379,6 +398,11 @@ export default function HomeSurvey() {
                     <div className="bg-white border-t-8 border-purple-700 rounded-lg shadow-md p-6 sm:p-8 mb-4">
                         <h1 className="text-3xl sm:text-4xl font-normal text-gray-900 mb-3">{survey.titulo}</h1>
                         <h2 className="text-lg text-gray-700 mb-4 font-medium">{survey.descripcion}</h2>
+                        
+                        <div className="bg-purple-50 border border-purple-100 rounded-lg p-4 mb-4 text-sm text-gray-700 leading-relaxed">
+                            Esta encuesta forma parte del proyecto de título de la estudiante <strong>Gabriela Lemarie Guerrero</strong>. El estudio tiene como objetivo recopilar datos académicos sobre la relación entre la ansiedad estudiantil, la alimentación y el bienestar general, aplicando la escala <strong>GAD-7</strong> para identificar la frecuencia de síntomas asociados al estrés académico en la educación superior.
+                        </div>
+
                         <hr className="mb-4 border-gray-200" />
                         <h3 className="font-bold text-gray-800 mb-2">CONSENTIMIENTO INFORMADO</h3>
                         <p className="text-gray-600 text-sm leading-relaxed mb-4">
@@ -439,25 +463,63 @@ export default function HomeSurvey() {
                                 />
                             </QuestionCard>
 
-                            <QuestionCard title="Carrera">
-                                <input 
-                                    type="text" 
+                            <QuestionCard title="Escuela">
+                                <select 
                                     name="carrera" 
                                     value={carrera} 
                                     onChange={(e) => setCarrera(e.target.value)}
                                     required
                                     disabled={isSubmitting}
-                                    placeholder="Tu respuesta"
                                     className="w-full sm:w-2/3 border-b-2 border-gray-300 focus:border-purple-600 outline-none pb-1 pt-2 transition duration-200 text-gray-800 bg-transparent disabled:opacity-50"
+                                >
+                                    <option value="" disabled>Seleccione su escuela</option>
+                                    <option value="Escuela de Salud">Escuela de Salud</option>
+                                    <option value="Escuela de Telecomunicaciones">Escuela de Telecomunicaciones</option>
+                                    <option value="Escuela de Informática">Escuela de Informática</option>
+                                    <option value="Escuela de Administración y Negocios">Escuela de Administración y Negocios</option>
+                                    <option value="Escuela de Ingeniería">Escuela de Ingeniería</option>
+                                    <option value="Escuela de Construcción">Escuela de Construcción</option>
+                                    <option value="Escuela de Diseño">Escuela de Diseño</option>
+                                    <option value="Escuela de Gastronomía">Escuela de Gastronomía</option>
+                                    <option value="Escuela de Recursos Naturales">Escuela de Recursos Naturales</option>
+                                    <option value="Escuela de Turismo">Escuela de Turismo</option>
+                                    <option value="Otro">Otro</option>
+                                </select>
+                            </QuestionCard>
+
+                            <QuestionCard title="¿Se encuentra titulado/a?">
+                                <RadioGroup 
+                                    name="titulado" 
+                                    options={["No", "Sí"]} 
+                                    value={titulado}
+                                    onChange={setTitulado}
+                                    disabled={isSubmitting}
                                 />
                             </QuestionCard>
 
-                            <QuestionCard title="Año académico">
+                            {titulado === "No" && (
+                                <QuestionCard title="Año académico">
+                                    <input 
+                                        type="number" 
+                                        name="anio" 
+                                        value={anio} 
+                                        onChange={(e) => setAnio(e.target.value)}
+                                        required={titulado === "No"}
+                                        min="1"
+                                        max="10"
+                                        disabled={isSubmitting}
+                                        placeholder="Tu respuesta (ej: 1, 2, 3...)"
+                                        className="w-full sm:w-1/2 border-b-2 border-gray-300 focus:border-purple-600 outline-none pb-1 pt-2 transition duration-200 text-gray-800 bg-transparent disabled:opacity-50"
+                                    />
+                                </QuestionCard>
+                            )}
+
+                            <QuestionCard title="Situación Ocupacional">
                                 <RadioGroup 
-                                    name="anio" 
-                                    options={["1° año", "2° año", "3° año", "4° año", "Otro"]} 
-                                    value={anio}
-                                    onChange={setAnio}
+                                    name="situacionLaboral" 
+                                    options={["Solo estudia", "Estudia y trabaja", "Solo trabaja"]} 
+                                    value={situacionLaboral}
+                                    onChange={setSituacionLaboral}
                                     disabled={isSubmitting}
                                 />
                             </QuestionCard>
@@ -468,7 +530,26 @@ export default function HomeSurvey() {
                                     <div className="bg-purple-700 text-white p-3 rounded-t-lg shadow-sm">
                                         <h2 className="text-lg font-semibold ml-2">{sectionName}</h2>
                                     </div>
-                                    <div className="mb-4"></div>
+                                    {sectionName.toUpperCase().includes("GAD-7") && (
+                                        <div className="bg-white rounded-b-lg shadow-sm border-x border-b border-gray-200 p-5 mb-4 text-sm text-gray-600 leading-relaxed">
+                                            La escala <strong>GAD-7</strong> (Cuestionario de Ansiedad Generalizada) es una herramienta de tamizaje clínicamente validada que mide la frecuencia y severidad de los síntomas de ansiedad durante las últimas 2 semanas. Por favor, responda a las siguientes preguntas indicando la opción que mejor represente su situación.
+                                        </div>
+                                    )}
+                                    {sectionName.toUpperCase().includes("ALIMENTACIÓN") && (
+                                        <div className="bg-white rounded-b-lg shadow-sm border-x border-b border-gray-200 p-5 mb-4 text-sm text-gray-600 leading-relaxed">
+                                            Esta sección analiza la relación entre los niveles de estrés o ansiedad de origen académico y sus conductas alimentarias, de sueño y energía cotidiana.
+                                        </div>
+                                    )}
+                                    {sectionName.toUpperCase().includes("PERCEPCIÓN") && (
+                                        <div className="bg-white rounded-b-lg shadow-sm border-x border-b border-gray-200 p-5 mb-4 text-sm text-gray-600 leading-relaxed">
+                                            Las siguientes preguntas recopilan su opinión sobre el impacto de los trastornos alimentarios y la importancia de contar con apoyo institucional en salud mental.
+                                        </div>
+                                    )}
+                                    {!sectionName.toUpperCase().includes("GAD-7") && 
+                                     !sectionName.toUpperCase().includes("ALIMENTACIÓN") && 
+                                     !sectionName.toUpperCase().includes("PERCEPCIÓN") && (
+                                        <div className="mb-4"></div>
+                                    )}
                                     
                                     {questions.map((q) => (
                                         <QuestionCard key={q.id} title={q.titulo} isRequired={q.requerida}>
@@ -495,6 +576,25 @@ export default function HomeSurvey() {
                                     ))}
                                 </div>
                             ))}
+
+                            {/* Sección opcional de comentarios al final de todo el formulario */}
+                            <div className="mt-8">
+                                <QuestionCard title="¿Deseas agregar algún comentario o sugerencia adicional?" isRequired={false}>
+                                    <textarea
+                                        name="comentarios_adicionales"
+                                        value={comentarios}
+                                        onChange={(e) => setComentarios(e.target.value)}
+                                        maxLength={2000}
+                                        placeholder="Si tienes alguna duda, sugerencia o comentario sobre la encuesta, escríbelo aquí..."
+                                        rows={4}
+                                        disabled={isSubmitting}
+                                        className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:border-purple-600 transition duration-200 text-gray-800 bg-transparent disabled:opacity-50"
+                                    />
+                                    <div className="text-right text-xs text-gray-400 mt-1">
+                                        {comentarios.length} / 2000 caracteres
+                                    </div>
+                                </QuestionCard>
+                            </div>
 
                             <div className="flex justify-between items-center mt-8 mb-12">
                                 <button 

@@ -37,12 +37,95 @@ export async function GET(request: Request) {
             WHERE encuesta_id = ${survey.id};
         `;
 
-        const responses = responsesResult.rows;
+        const responses = (responsesResult.rows as any[]).map((row: any) => {
+            const dataGen = { ...row.datos_generales };
+            
+            // Normalizar Carrera/Escuela
+            const originalCarrera = dataGen.carrera || "";
+            const cleanCarrera = originalCarrera.trim().toLowerCase();
+            
+            let escuela = originalCarrera;
+            let titulado = dataGen.titulado || "No";
+            
+            const officialSchools = [
+                "Escuela de Salud",
+                "Escuela de Telecomunicaciones",
+                "Escuela de Informática",
+                "Escuela de Administración y Negocios",
+                "Escuela de Ingeniería",
+                "Escuela de Construcción",
+                "Escuela de Diseño",
+                "Escuela de Gastronomía",
+                "Escuela de Recursos Naturales",
+                "Escuela de Turismo"
+            ];
+            
+            if (officialSchools.includes(originalCarrera)) {
+                escuela = originalCarrera;
+            } else if (originalCarrera === "Otra / No aplica" || originalCarrera === "Otro") {
+                escuela = "Otro";
+            } else {
+                if (cleanCarrera.includes("tens") || cleanCarrera.includes("enfermer") || cleanCarrera.includes("odontolog") || cleanCarrera.includes("farmacia") || cleanCarrera.includes("nutricionista") || cleanCarrera.includes("terapia ocupacional") || cleanCarrera.includes("salud")) {
+                    escuela = "Escuela de Salud";
+                } else if (cleanCarrera.includes("informática") || cleanCarrera.includes("informatica") || cleanCarrera.includes("programador") || cleanCarrera.includes("tecnologías") || cleanCarrera.includes("telecomunicaci")) {
+                    if (cleanCarrera.includes("telecomunicaci")) {
+                        escuela = "Escuela de Telecomunicaciones";
+                    } else {
+                        escuela = "Escuela de Informática";
+                    }
+                } else if (cleanCarrera.includes("ingeniería mecánica") || cleanCarrera.includes("mecánica") || cleanCarrera.includes("electricidad") || cleanCarrera.includes("electrónica")) {
+                    escuela = "Escuela de Ingeniería";
+                } else if (cleanCarrera.includes("comercial") || cleanCarrera.includes("administra") || cleanCarrera.includes("finanzas") || cleanCarrera.includes("negocios")) {
+                    escuela = "Escuela de Administración y Negocios";
+                } else if (cleanCarrera.includes("turismo") || cleanCarrera.includes("hospitalidad") || cleanCarrera.includes("turistica") || cleanCarrera.includes("turística")) {
+                    escuela = "Escuela de Turismo";
+                } else if (cleanCarrera.includes("silvestres") || cleanCarrera.includes("recursos naturales") || cleanCarrera.includes("agrícola") || cleanCarrera.includes("forestal")) {
+                    escuela = "Escuela de Recursos Naturales";
+                } else if (cleanCarrera.includes("diseño") || cleanCarrera.includes("diseno")) {
+                    escuela = "Escuela de Diseño";
+                } else if (cleanCarrera.includes("gastrono") || cleanCarrera.includes("cocina")) {
+                    escuela = "Escuela de Gastronomía";
+                } else if (cleanCarrera.includes("construcción") || cleanCarrera.includes("construccion")) {
+                    escuela = "Escuela de Construcción";
+                } else {
+                    escuela = "Otro";
+                }
+                
+                const titledKeywords = [
+                    "ingeniero comercial",
+                    "profesor educación fisica",
+                    "sales advisor",
+                    "encargada",
+                    "año sabatico"
+                ];
+                if (titledKeywords.some(keyword => cleanCarrera.includes(keyword))) {
+                    titulado = "Sí";
+                }
+            }
+            
+            let anio = dataGen.anio;
+            if (titulado === "Sí") {
+                anio = "";
+            }
+
+            return {
+                ...row,
+                datos_generales: {
+                    ...dataGen,
+                    carrera: escuela,
+                    originalCarrera: originalCarrera !== escuela ? originalCarrera : undefined,
+                    titulado,
+                    anio
+                }
+            };
+        });
 
         // 3. Calcular las métricas agregadas de forma sumamente segura (anónima)
         const total = responses.length;
         let sumAge = 0;
         let validAgeCount = 0;
+        let estudiantesCount = 0;
+        let tituladosCount = 0;
 
         const gad7Dist = {
             "Ansiedad mínima": 0,
@@ -85,8 +168,24 @@ export async function GET(request: Request) {
 
             // Años académicos
             if (dataGen.anio) {
-                const anio = dataGen.anio.trim();
+                const normalizeYearName = (y: string): string => {
+                    const val = y.replace('°', '').replace(' año', '').trim();
+                    if (val === '1' || val === '2' || val === '3' || val === '4') {
+                        return `${val}° año`;
+                    }
+                    const num = parseInt(val);
+                    if (!isNaN(num) && num >= 5) return `${num}° año`;
+                    return 'Otro';
+                };
+                const anio = normalizeYearName(dataGen.anio);
                 yearCount[anio] = (yearCount[anio] || 0) + 1;
+            }
+
+            // Conteo Estudiantes vs Titulados
+            if (dataGen.titulado === "Sí") {
+                tituladosCount++;
+            } else {
+                estudiantesCount++;
             }
         });
 
@@ -121,7 +220,9 @@ export async function GET(request: Request) {
                 criticalAnxietyPercent,
                 gad7Dist,
                 topCareers,
-                yearDist
+                yearDist,
+                estudiantesCount,
+                tituladosCount
             }
         });
 
