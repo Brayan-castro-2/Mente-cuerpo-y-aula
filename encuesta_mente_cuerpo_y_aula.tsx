@@ -14,18 +14,18 @@ const GAD7_QUESTIONS = [
 const RELACION_OPTIONS = ["Nunca", "Rara vez", "A veces", "Frecuentemente", "Muy frecuentemente"];
 const RELACION_QUESTIONS = [
     "1. ¿Has sentido que comes grandes cantidades de comida en poco tiempo, acompañado de una sensación de pérdida de control?",
-    "2. ¿Has presentado molestias físicas (dolor estomacal, náuseas, falta de apetito o malestar digestivo) en períodos de estrés, ansiedad o preocupación académica?",
+    "2. ¿Has presentado molestias físicas (dolor estomacal, náuseas, falta de apetito o malestar digestivo) en períodos de estrés, ansiedad o preocupación académica o laboral?",
     "3. ¿Te has sentido preocupado/a por tu peso o apariencia física al punto de afectar tu bienestar emocional?",
-    "4. ¿Has cambiado tus hábitos alimentarios durante períodos de estrés académico?",
-    "5. ¿Has tenido dificultades para dormir debido a preocupaciones académicas o personales?",
-    "6. ¿Sientes que la ansiedad ha afectado tu rendimiento académico o concentración?"
+    "4. ¿Has cambiado tus hábitos alimentarios durante períodos de estrés académico o laboral?",
+    "5. ¿Has tenido dificultades para dormir debido a preocupaciones académicas, laborales o personales?",
+    "6. ¿Sientes que la ansiedad ha afectado tu rendimiento académico, laboral o concentración?"
 ];
 
 const PERCEPCION_OPTIONS = ["Totalmente en desacuerdo", "En desacuerdo", "Neutral", "De acuerdo", "Totalmente de acuerdo"];
 const PERCEPCION_QUESTIONS = [
-    "1. ¿Consideras que trastornos como la anorexia, bulimia o el trastorno por atracón afectan significativamente la salud mental y la vida académica de una persona?",
-    "2. ¿Crees que existe suficiente información y apoyo sobre salud mental en el entorno estudiantil?",
-    "3. ¿Consideras importante hablar sobre salud mental y alimentación en instituciones educativas?"
+    "1. ¿Consideras que trastornos como la anorexia, bulimia o el trastorno por atracón afectan significativamente la salud mental y la vida académica o laboral de una persona?",
+    "2. ¿Crees que existe suficiente información y apoyo sobre salud mental en el entorno estudiantil o laboral?",
+    "3. ¿Consideras importante hablar sobre salud mental y alimentación en instituciones educativas o de trabajo?"
 ];
 
 const QuestionCard = ({ title, description, children, isRequired = true }) => (

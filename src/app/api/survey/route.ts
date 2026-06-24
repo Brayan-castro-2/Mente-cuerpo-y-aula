@@ -13,17 +13,17 @@ const GAD7_QUESTIONS = [
 
 const RELACION_QUESTIONS = [
     "1. ¿Has sentido que comes grandes cantidades de comida en poco tiempo, acompañado de una sensación de pérdida de control?",
-    "2. ¿Has presentado molestias físicas (dolor estomacal, náuseas, falta de apetito o malestar digestivo) en períodos de estrés, ansiedad o preocupación académica?",
+    "2. ¿Has presentado molestias físicas (dolor estomacal, náuseas, falta de apetito o malestar digestivo) en períodos de estrés, ansiedad o preocupación académica o laboral?",
     "3. ¿Te has sentido preocupado/a por tu peso o apariencia física al punto de afectar tu bienestar emocional?",
-    "4. ¿Has cambiado tus hábitos alimentarios durante períodos de estrés académico?",
-    "5. ¿Has tenido dificultades para dormir debido a preocupaciones académicas o personales?",
-    "6. ¿Sientes que la ansiedad ha afectado tu rendimiento académico o concentración?"
+    "4. ¿Has cambiado tus hábitos alimentarios durante períodos de estrés académico o laboral?",
+    "5. ¿Has tenido dificultades para dormir debido a preocupaciones académicas, laborales o personales?",
+    "6. ¿Sientes que la ansiedad ha afectado tu rendimiento académico, laboral o concentración?"
 ];
 
 const PERCEPCION_QUESTIONS = [
-    "1. ¿Consideras que trastornos como la anorexia, bulimia o el trastorno por atracón afectan significativamente la salud mental y la vida académica de una persona?",
-    "2. ¿Crees que existe suficiente información y apoyo sobre salud mental en el entorno estudiantil?",
-    "3. ¿Consideras importante hablar sobre salud mental y alimentación en instituciones educativas?"
+    "1. ¿Consideras que trastornos como la anorexia, bulimia o el trastorno por atracón afectan significativamente la salud mental y la vida académica o laboral de una persona?",
+    "2. ¿Crees que existe suficiente información y apoyo sobre salud mental en el entorno estudiantil o laboral?",
+    "3. ¿Consideras importante hablar sobre salud mental y alimentación en instituciones educativas o de trabajo?"
 ];
 
 // Estructura de preguntas por defecto para sembrar (flagship GAD-7)
@@ -75,7 +75,7 @@ const FLAGSHIP_PREGUNTAS = [
     // Preguntas adicionales solicitadas
     {
         id: "relacion_6",
-        titulo: "Ante la presión académica, ¿priorizas el rendimiento inmediato (nota/entrega) sobre la satisfacción de tus necesidades fisiológicas básicas (comer, dormir, hidratarse)?",
+        titulo: "Ante la presión académica o laboral, ¿priorizas el rendimiento inmediato (nota/entrega/meta) sobre la satisfacción de tus necesidades fisiológicas básicas (comer, dormir, hidratarse)?",
         seccion: "RELACIÓN ENTRE ANSIEDAD, ALIMENTACIÓN Y BIENESTAR",
         tipo: "opcion_unica",
         opciones: ["Siempre", "Frecuentemente", "A veces", "Rara vez", "Nunca"],
@@ -97,15 +97,22 @@ const FLAGSHIP_PREGUNTAS = [
     },
     {
         id: "relacion_8",
-        titulo: "¿Con qué frecuencia experimentas síntomas físicos que asocias directamente a la carga académica? (Gastritis, tensión muscular, cefaleas, taquicardia).",
+        titulo: "¿Qué síntomas físicos experimentas o has experimentado y asocias directamente a la carga académica o laboral?",
         seccion: "RELACIÓN ENTRE ANSIEDAD, ALIMENTACIÓN Y BIENESTAR",
-        tipo: "opcion_unica",
-        opciones: ["Siempre", "Frecuentemente", "A veces", "Rara vez", "Nunca"],
+        tipo: "opcion_multiple",
+        opciones: [
+            "Gastritis / Molestias estomacales", 
+            "Tensión muscular", 
+            "Cefaleas / Dolor de cabeza", 
+            "Taquicardia / Palpitaciones", 
+            "Ninguno", 
+            "Otro"
+        ],
         requerida: true
     },
     {
         id: "relacion_9",
-        titulo: "¿Sientes que tu nivel de energía es suficiente para cumplir con tus obligaciones académicas sin depender de estimulantes (café, bebidas energéticas, fármacos)?",
+        titulo: "¿Sientes que tu nivel de energía es suficiente para cumplir con tus obligaciones académicas o laborales sin depender de estimulantes (café, bebidas energéticas, fármacos)?",
         seccion: "RELACIÓN ENTRE ANSIEDAD, ALIMENTACIÓN Y BIENESTAR",
         tipo: "opcion_unica",
         opciones: ["Siempre", "Frecuentemente", "A veces", "Rara vez", "Nunca"],
@@ -113,7 +120,7 @@ const FLAGSHIP_PREGUNTAS = [
     },
     {
         id: "percepcion_3",
-        titulo: "¿Sientes que en tu carrera existe una cultura donde \"aguantar hambre o sueño\" es visto como parte del compromiso académico?",
+        titulo: "¿Sientes que en tu carrera, entorno académico o laboral existe una cultura donde \"aguantar hambre o sueño\" es visto como parte del compromiso?",
         seccion: "PERCEPCIÓN SOBRE SALUD MENTAL Y TRASTORNOS ALIMENTARIOS",
         tipo: "opcion_unica",
         opciones: ["Sí", "No", "Tal vez"],
@@ -121,10 +128,10 @@ const FLAGSHIP_PREGUNTAS = [
     },
     {
         id: "apoyo3",
-        titulo: "Si tuvieras que priorizar, ¿qué pondrías primero: el rendimiento académico (calificaciones) o tu salud física/mental?",
+        titulo: "Si tuvieras que priorizar, ¿qué pondrías primero: el rendimiento académico/laboral o tu salud física/mental?",
         seccion: "APOYO Y BIENESTAR",
         tipo: "opcion_unica",
-        opciones: ["Rendimiento académico (calificaciones)", "Tu salud física/mental", "Ambos por igual"],
+        opciones: ["Rendimiento académico/laboral", "Tu salud física/mental", "Ambos por igual"],
         requerida: true
     }
 ];
@@ -292,7 +299,7 @@ export async function POST(request: Request) {
             });
         }
 
-        if (!datosGenerales || !datosGenerales.edad || !datosGenerales.genero || !datosGenerales.carrera || !datosGenerales.anio) {
+        if (!datosGenerales || !datosGenerales.edad || !datosGenerales.genero || !datosGenerales.carrera || (datosGenerales.titulado !== 'Sí' && !datosGenerales.anio)) {
             return NextResponse.json({
                 success: false,
                 error: "Faltan rellenar los datos demográficos obligatorios."

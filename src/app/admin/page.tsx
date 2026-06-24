@@ -6,7 +6,7 @@ interface Question {
     id: string;
     titulo: string;
     seccion?: string;
-    tipo: 'texto' | 'opcion_unica';
+    tipo: 'texto' | 'opcion_unica' | 'opcion_multiple';
     opciones?: string[];
     requerida?: boolean;
 }
@@ -100,8 +100,23 @@ export default function AdminDashboard() {
     // Modal de Detalle
     const [activeResponse, setActiveResponse] = useState<ResponseItem | null>(null);
 
+    // Vista del Informe Ejecutivo
+    const [showReportPanel, setShowReportPanel] = useState(false);
+    const [isPrintMode, setIsPrintMode] = useState(false);
+    const [printSurveySlug, setPrintSurveySlug] = useState<string | null>(null);
+
     // Recuperar credenciales del localStorage si existen
     useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const printParam = params.get("print");
+            const reportParam = params.get("report");
+            if (printParam === "true" && reportParam) {
+                setIsPrintMode(true);
+                setPrintSurveySlug(reportParam);
+            }
+        }
+        
         const savedPass = localStorage.getItem("admin_session_password");
         if (savedPass) {
             handleLoginWithPassword(savedPass);
@@ -123,7 +138,17 @@ export default function AdminDashboard() {
                 localStorage.setItem("admin_session_password", passToVerify);
                 setPassword(passToVerify);
                 setSurveys(data.surveys);
-                if (data.surveys.length > 0) {
+                
+                const params = new URLSearchParams(window.location.search);
+                const reportSlug = params.get("report");
+                let matchedSurvey = null;
+                if (reportSlug) {
+                    matchedSurvey = data.surveys.find((s: Survey) => s.slug === reportSlug);
+                }
+                
+                if (matchedSurvey) {
+                    setSelectedSurveyId(matchedSurvey.id);
+                } else if (data.surveys.length > 0) {
                     setSelectedSurveyId(data.surveys[0].id);
                 }
             } else {
@@ -199,6 +224,16 @@ export default function AdminDashboard() {
         setSearchQuery("");
     }, [selectedSurveyId, isLoggedIn]);
 
+    // Disparar diálogo de impresión automáticamente cuando finalice la carga de datos en vista de impresión
+    useEffect(() => {
+        if (isPrintMode && !loadingResponses && !loadingSurveys && responses.length > 0) {
+            const timer = setTimeout(() => {
+                window.print();
+            }, 1200); // 1.2s para asegurar pintado completo de componentes y CSS
+            return () => clearTimeout(timer);
+        }
+    }, [isPrintMode, loadingResponses, loadingSurveys, responses]);
+
     // Habilitar/Desactivar Encuesta
     const handleToggleSurvey = async (id: string, currentActive: boolean) => {
         try {
@@ -269,11 +304,11 @@ export default function AdminDashboard() {
         setNewQuestions(prev => prev.map((q, i) => i === idx ? { ...q, titulo: text } : q));
     };
 
-    const handleQuestionTypeChange = (idx: number, type: 'texto' | 'opcion_unica') => {
+    const handleQuestionTypeChange = (idx: number, type: 'texto' | 'opcion_unica' | 'opcion_multiple') => {
         setNewQuestions(prev => prev.map((q, i) => i === idx ? { 
             ...q, 
             tipo: type,
-            opciones: type === 'opcion_unica' ? ["Sí", "No"] : undefined
+            opciones: (type === 'opcion_unica' || type === 'opcion_multiple') ? ["Sí", "No"] : undefined
         } : q));
     };
 
@@ -536,6 +571,41 @@ export default function AdminDashboard() {
 
     // RENDERIZAR DASHBOARD COMPLETO (BOOTSTRAP 5)
     const activeFiltered = getFilteredResponses();
+    const activeSurveyForPrint = surveys.find(s => s.id === selectedSurveyId);
+
+    if (isPrintMode) {
+        if (loadingSurveys || loadingResponses) {
+            return (
+                <div className="d-flex align-items-center justify-content-center min-h-screen bg-white" style={{ minHeight: '100vh' }}>
+                    <div className="text-center">
+                        <div className="spinner-border text-purple" role="status" style={{ color: '#8b5cf6' }}>
+                            <span className="visually-hidden">Cargando...</span>
+                        </div>
+                        <p className="mt-3 text-muted fw-medium font-sans">Preparando informe para impresión...</p>
+                    </div>
+                </div>
+            );
+        }
+
+        if (!activeSurveyForPrint) {
+            return (
+                <div className="container py-5 text-center bg-white" style={{ minHeight: '100vh' }}>
+                    <h3 className="fw-bold font-sans">Error al cargar el informe</h3>
+                    <p className="text-muted font-sans">No se pudo encontrar la encuesta especificada o no tiene acceso.</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="bg-white min-h-screen p-4" style={{ color: '#111827' }}>
+                <ReportContent 
+                    survey={activeSurveyForPrint} 
+                    responses={activeFiltered} 
+                    isPrintView={true} 
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="bg-light min-h-screen font-sans pb-5">
@@ -663,6 +733,7 @@ export default function AdminDashboard() {
                                                 className="form-select form-select-sm"
                                             >
                                                 <option value="opcion_unica">Opción Única (Radios)</option>
+                                                <option value="opcion_multiple">Opción Múltiple (Casillas)</option>
                                                 <option value="texto">Texto Libre</option>
                                             </select>
                                         </div>
@@ -678,8 +749,8 @@ export default function AdminDashboard() {
                                         </div>
                                     </div>
 
-                                    {/* Si es opción única, dejar añadir opciones */}
-                                    {q.tipo === 'opcion_unica' && q.opciones && (
+                                    {/* Si es opción única o múltiple, dejar añadir opciones */}
+                                    {(q.tipo === 'opcion_unica' || q.tipo === 'opcion_multiple') && q.opciones && (
                                         <div className="mt-3 ps-4 border-start border-purple" style={{ borderLeftWidth: '3px' }}>
                                             <div className="d-flex justify-content-between align-items-center mb-2">
                                                 <span className="small fw-semibold text-secondary">Opciones de Respuesta</span>
@@ -783,6 +854,14 @@ export default function AdminDashboard() {
                                 <div className="col-md-7 d-flex justify-content-md-end flex-wrap gap-2 mt-3 mt-md-0">
                                     {activeSurvey && (
                                         <>
+                                            <button 
+                                                onClick={() => setShowReportPanel(true)} 
+                                                disabled={activeFiltered.length === 0}
+                                                className="btn btn-sm text-white px-3 py-2 fw-bold"
+                                                style={{ backgroundColor: '#6f42c1', borderColor: '#6f42c1' }}
+                                            >
+                                                📊 Generar Informe
+                                            </button>
                                             <a href={activeSurvey.slug === 'mente-cuerpo-y-aula' ? '/' : `/survey/${activeSurvey.slug}`} target="_blank" className="btn btn-sm btn-outline-secondary px-3 py-2">
                                                 Abrir Formulario Estudiante
                                             </a>
@@ -1123,9 +1202,14 @@ export default function AdminDashboard() {
                                 <div className="card shadow-sm border-0 p-4 bg-white">
                                     <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center border-bottom pb-3 mb-3">
                                         <h3 className="fw-normal text-secondary m-0 mb-3 mb-md-0">Detalle de Respuestas Recibidas</h3>
-                                        <button onClick={exportToCSV} disabled={activeFiltered.length === 0} className="btn btn-sm btn-success px-4 fw-bold">
-                                            Exportar a Excel (CSV)
-                                        </button>
+                                        <div className="d-flex gap-2">
+                                            <button onClick={exportToCSV} disabled={activeFiltered.length === 0} className="btn btn-sm btn-success px-4 fw-bold me-2">
+                                                Exportar a Excel (CSV)
+                                            </button>
+                                            <button onClick={() => setShowReportPanel(true)} disabled={activeFiltered.length === 0} className="btn btn-sm text-white px-4 fw-bold" style={{ backgroundColor: '#6f42c1', borderColor: '#6f42c1' }}>
+                                                📊 Generar Informe
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* Barra de Filtros y Búsqueda */}
@@ -1581,6 +1665,445 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Informe de Encuesta */}
+            {showReportPanel && activeSurvey && (
+                <ReportContent 
+                    survey={activeSurvey} 
+                    responses={activeFiltered} 
+                    onClose={() => setShowReportPanel(false)}
+                />
+            )}
         </div>
     );
 }
+
+// Componente de Reporte Ejecutivo Imprimible y Dinámico
+const ReportContent: React.FC<{
+    survey: Survey;
+    responses: ResponseItem[];
+    onClose?: () => void;
+    isPrintView?: boolean;
+}> = ({ survey, responses, onClose, isPrintView = false }) => {
+    const total = responses.length;
+    const dateStr = new Date().toLocaleDateString('es-CL', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    const ages = responses.map(r => parseInt(r.datos_generales?.edad)).filter(a => !isNaN(a));
+    const avgAge = ages.length > 0 ? (ages.reduce((sum, a) => sum + a, 0) / ages.length).toFixed(1) : "N/A";
+
+    // Genders
+    const genderCounts: Record<string, number> = {};
+    responses.forEach(r => {
+        const g = r.datos_generales?.genero || "No especificado";
+        genderCounts[g] = (genderCounts[g] || 0) + 1;
+    });
+
+    // Careers
+    const careerCounts: Record<string, number> = {};
+    responses.forEach(r => {
+        const c = r.datos_generales?.carrera || "No especificada";
+        careerCounts[c] = (careerCounts[c] || 0) + 1;
+    });
+
+    // Titulado
+    const titledCounts: Record<string, number> = { "Sí": 0, "No": 0 };
+    responses.forEach(r => {
+        const t = r.datos_generales?.titulado || "No";
+        titledCounts[t] = (titledCounts[t] || 0) + 1;
+    });
+
+    // Ocupación
+    const workCounts: Record<string, number> = {};
+    responses.forEach(r => {
+        const w = r.datos_generales?.situacionLaboral || "Solo estudia";
+        workCounts[w] = (workCounts[w] || 0) + 1;
+    });
+
+    // GAD-7 logic
+    const hasGad7 = survey.preguntas.some(q => q.id.startsWith("gad7_"));
+    let avgGad7 = "N/A";
+    let criticalAnxietyPercent = 0;
+    const gad7Distribution = {
+        "Ansiedad mínima": 0,
+        "Ansiedad leve": 0,
+        "Ansiedad moderada": 0,
+        "Ansiedad severa": 0
+    };
+
+    if (hasGad7) {
+        const validScores = responses.map(r => r.gad7_score).filter(s => s !== null) as number[];
+        if (validScores.length > 0) {
+            avgGad7 = (validScores.reduce((sum, s) => sum + s, 0) / validScores.length).toFixed(1);
+            const criticalCount = responses.filter(r => r.gad7_score !== null && r.gad7_score >= 10).length;
+            criticalAnxietyPercent = parseFloat(((criticalCount / validScores.length) * 100).toFixed(1));
+        }
+
+        responses.forEach(r => {
+            if (r.gad7_level) {
+                const lvl = r.gad7_level as keyof typeof gad7Distribution;
+                if (gad7Distribution[lvl] !== undefined) {
+                    gad7Distribution[lvl]++;
+                }
+            }
+        });
+    }
+
+    // Dynamic questions statistics
+    const questionStats = survey.preguntas.map(q => {
+        const answeredResponses = responses.filter(r => r.respuestas_preguntas[q.id] !== undefined && r.respuestas_preguntas[q.id] !== "");
+        const totalAnswers = answeredResponses.length;
+
+        if (q.tipo === 'opcion_unica' && q.opciones) {
+            const counts: Record<string, number> = {};
+            q.opciones.forEach(opt => { counts[opt] = 0; });
+            answeredResponses.forEach(r => {
+                const ans = r.respuestas_preguntas[q.id];
+                if (ans && q.opciones?.includes(ans)) {
+                    counts[ans] = (counts[ans] || 0) + 1;
+                }
+            });
+            return {
+                id: q.id,
+                titulo: q.titulo,
+                tipo: q.tipo,
+                seccion: q.seccion,
+                totalAnswers,
+                stats: q.opciones.map(opt => ({
+                    option: opt,
+                    count: counts[opt] || 0,
+                    percent: totalAnswers > 0 ? parseFloat(((counts[opt] / totalAnswers) * 100).toFixed(1)) : 0
+                }))
+            };
+        } else if (q.tipo === 'opcion_multiple' && q.opciones) {
+            const counts: Record<string, number> = {};
+            q.opciones.forEach(opt => { counts[opt] = 0; });
+            answeredResponses.forEach(r => {
+                const ans = r.respuestas_preguntas[q.id] || "";
+                const selected = ans ? ans.split(', ') : [];
+                selected.forEach(s => {
+                    if (q.opciones?.includes(s)) {
+                        counts[s] = (counts[s] || 0) + 1;
+                    }
+                });
+            });
+            return {
+                id: q.id,
+                titulo: q.titulo,
+                tipo: q.tipo,
+                seccion: q.seccion,
+                totalAnswers,
+                stats: q.opciones.map(opt => ({
+                    option: opt,
+                    count: counts[opt] || 0,
+                    percent: totalAnswers > 0 ? parseFloat(((counts[opt] / totalAnswers) * 100).toFixed(1)) : 0
+                }))
+            };
+        } else {
+            const answersList = answeredResponses
+                .map(r => r.respuestas_preguntas[q.id])
+                .filter(ans => ans !== undefined && ans !== "") as string[];
+            return {
+                id: q.id,
+                titulo: q.titulo,
+                tipo: q.tipo,
+                seccion: q.seccion,
+                totalAnswers,
+                answersList
+            };
+        }
+    });
+
+    const handlePrintClick = () => {
+        window.open(`/admin?report=${survey.slug}&print=true`, '_blank');
+    };
+
+    const renderProgressBar = (label: string, count: number, percent: number, colorClass = "bg-primary") => (
+        <div className="mb-3">
+            <div className="d-flex justify-content-between align-items-center mb-1" style={{ fontSize: '0.85rem' }}>
+                <span className="text-secondary fw-medium text-truncate" style={{ maxWidth: '75%' }}>{label}</span>
+                <span className="text-dark fw-bold">{count} ({percent.toFixed(1)}%)</span>
+            </div>
+            <div className="progress" style={{ height: '8px', backgroundColor: '#e9ecef', borderRadius: '4px' }}>
+                <div 
+                    className={`progress-bar ${colorClass}`} 
+                    role="progressbar" 
+                    style={{ width: `${percent}%`, borderRadius: '4px' }}
+                ></div>
+            </div>
+        </div>
+    );
+
+    const reportBody = (
+        <div className="print-container">
+            <style>{`
+                @media print {
+                    .no-print { display: none !important; }
+                    body { background: white !important; color: black !important; }
+                    .print-card {
+                        border: 1px solid #dee2e6 !important;
+                        box-shadow: none !important;
+                        break-inside: avoid !important;
+                        page-break-inside: avoid !important;
+                        margin-bottom: 20px !important;
+                        background: white !important;
+                    }
+                    .page-break {
+                        page-break-before: always !important;
+                        break-before: always !important;
+                    }
+                }
+                .text-purple-700 { color: #6d28d9; }
+                .border-purple-700 { border-color: #6d28d9; }
+                .bg-purple-700 { background-color: #6d28d9 !important; }
+                .bg-orange-500 { background-color: #f97316 !important; }
+            `}</style>
+
+            {/* Header del informe */}
+            <div className="d-flex justify-content-between align-items-start border-bottom pb-4 mb-4 flex-wrap">
+                <div>
+                    <span className="badge text-uppercase tracking-wider px-3 py-1.5 mb-2" style={{ backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#6d28d9', fontWeight: '700' }}>
+                        {survey.categoria || 'Informe de Encuesta'}
+                    </span>
+                    <h1 className="fw-bold text-dark mb-1">{survey.titulo}</h1>
+                    <p className="text-muted m-0">{survey.descripcion}</p>
+                </div>
+                <div className="text-end mt-3 mt-md-0 no-print d-flex gap-2">
+                    <button onClick={handlePrintClick} className="btn btn-purple btn-sm px-3 fw-bold d-flex align-items-center" style={{ backgroundColor: '#8b5cf6', color: '#fff' }}>
+                        <svg className="bi bi-printer-fill me-1.5" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zm4 0v2H7V1h2zm2 5H5v3h6V6z"/>
+                        </svg>
+                        Imprimir / PDF
+                    </button>
+                    {onClose && (
+                        <button onClick={onClose} className="btn btn-outline-secondary btn-sm px-3 fw-bold">
+                            Cerrar
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Ficha técnica resumida */}
+            <div className="card shadow-sm border-0 border-top border-purple-700 border-4 p-4 mb-4 bg-white print-card">
+                <h5 className="fw-bold text-purple-700 mb-3">Ficha Técnica de Control</h5>
+                <div className="row g-3">
+                    <div className="col-md-3 col-sm-6">
+                        <span className="text-muted d-block small text-uppercase">Respuestas Recibidas</span>
+                        <strong className="fs-4 text-dark">{total}</strong>
+                    </div>
+                    <div className="col-md-3 col-sm-6">
+                        <span className="text-muted d-block small text-uppercase">Edad Promedio</span>
+                        <strong className="fs-4 text-dark">{avgAge} años</strong>
+                    </div>
+                    <div className="col-md-3 col-sm-6">
+                        <span className="text-muted d-block small text-uppercase">Fecha de Emisión</span>
+                        <strong className="text-dark d-block mt-2 small">{dateStr}</strong>
+                    </div>
+                    <div className="col-md-3 col-sm-6">
+                        <span className="text-muted d-block small text-uppercase">Estado de Encuesta</span>
+                        <span className={`badge mt-2 ${survey.activa ? 'bg-success' : 'bg-secondary'}`}>
+                            {survey.activa ? 'Recopilando Respuestas' : 'Cerrada / Archivada'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Alerta de Salud Mental e Índices Críticos */}
+            {hasGad7 && (
+                <div className="mb-4">
+                    {criticalAnxietyPercent >= 25 ? (
+                        <div className="alert alert-danger border-start border-danger border-4 shadow-sm p-4 print-card" style={{ borderRadius: '8px' }}>
+                            <h5 className="alert-heading fw-bold d-flex align-items-center text-danger mb-2">
+                                <svg className="bi bi-exclamation-triangle-fill me-2" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                                </svg>
+                                ⚠️ ALERTA INSTITUCIONAL DE BIENESTAR
+                            </h5>
+                            <p className="m-0 fs-6 leading-relaxed text-dark">
+                                Se ha detectado un índice crítico del <strong>{criticalAnxietyPercent.toFixed(1)}%</strong> de participantes con niveles de <strong>ansiedad moderada a severa</strong> (puntaje GAD-7 ≥ 10). Se recomienda prioritariamente activar protocolos de apoyo psicológico estudiantil, coordinar derivaciones asistidas al departamento de orientación/salud y lanzar campañas de difusión preventiva en el campus o centro laboral.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="alert alert-success border-start border-success border-4 shadow-sm p-4 print-card" style={{ borderRadius: '8px' }}>
+                            <h5 className="alert-heading fw-bold d-flex align-items-center text-success mb-2">
+                                <svg className="bi bi-check-circle-fill me-2" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                                </svg>
+                                ✓ ESTADO DE ANSIEDAD ESTABLE
+                            </h5>
+                            <p className="m-0 fs-6 leading-relaxed text-dark">
+                                El índice de ansiedad moderada a severa en esta muestra es de un <strong>{criticalAnxietyPercent.toFixed(1)}%</strong>, situándose bajo el umbral de alerta institucional (25%). Se aconseja continuar con las prácticas preventivas de autocuidado, promoción de bienestar estudiantil y realizar un monitoreo regular de salud.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Resultados Escala GAD-7 */}
+            {hasGad7 && (
+                <div className="card shadow-sm border-0 p-4 mb-4 bg-white print-card">
+                    <h5 className="fw-bold text-purple-700 mb-3 border-bottom pb-2">Diagnóstico de Ansiedad Global (GAD-7)</h5>
+                    <div className="row g-4">
+                        <div className="col-md-5">
+                            <div className="p-3 bg-light rounded text-center border">
+                                <span className="text-muted d-block small">PUNTAJE PROMEDIO</span>
+                                <span className="fs-1 fw-bold text-purple-700">{avgGad7}</span>
+                                <span className="text-muted d-block mt-1">sobre un máximo de 21 puntos</span>
+                                <div className="mt-2 text-xs font-semibold text-secondary">
+                                    {parseFloat(avgGad7) <= 4 ? "Sintomatología Mínima" :
+                                     parseFloat(avgGad7) <= 9 ? "Sintomatología Leve" :
+                                     parseFloat(avgGad7) <= 14 ? "Sintomatología Moderada" : "Sintomatología Severa"}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="col-md-7">
+                            <h6 className="fw-bold text-secondary mb-3">Desglose de Severidad</h6>
+                            {Object.entries(gad7Distribution).map(([lvl, count]) => {
+                                const pct = total > 0 ? (count / total) * 100 : 0;
+                                let color = "bg-success";
+                                if (lvl === "Ansiedad leve") color = "bg-warning";
+                                if (lvl === "Ansiedad moderada") color = "bg-orange-500";
+                                if (lvl === "Ansiedad severa") color = "bg-danger";
+                                
+                                return renderProgressBar(lvl, count, pct, color);
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Desglose Demográfico */}
+            <div className="card shadow-sm border-0 p-4 mb-4 bg-white print-card">
+                <h5 className="fw-bold text-purple-700 mb-3 border-bottom pb-2">Composición Demográfica de la Muestra</h5>
+                <div className="row g-4">
+                    {/* Género */}
+                    <div className="col-md-6">
+                        <h6 className="fw-bold text-secondary mb-3">Distribución por Género</h6>
+                        {Object.entries(genderCounts).map(([label, count]) => {
+                            const pct = total > 0 ? (count / total) * 100 : 0;
+                            return renderProgressBar(label, count, pct, "bg-info");
+                        })}
+                    </div>
+                    {/* Situación Ocupacional */}
+                    <div className="col-md-6">
+                        <h6 className="fw-bold text-secondary mb-3">Situación Ocupacional / Laboral</h6>
+                        {Object.entries(workCounts).map(([label, count]) => {
+                            const pct = total > 0 ? (count / total) * 100 : 0;
+                            return renderProgressBar(label, count, pct, "bg-primary");
+                        })}
+                    </div>
+                    {/* Alumnado vs Titulado */}
+                    <div className="col-md-6">
+                        <h6 className="fw-bold text-secondary mb-3">Estado Académico (Titulado/a)</h6>
+                        {Object.entries(titledCounts).map(([label, count]) => {
+                            const pct = total > 0 ? (count / total) * 100 : 0;
+                            const displayLabel = label === "Sí" ? "Titulado / Egresado" : "Estudiante Activo";
+                            return renderProgressBar(displayLabel, count, pct, "bg-success");
+                        })}
+                    </div>
+                    {/* Escuelas principales */}
+                    <div className="col-md-6">
+                        <h6 className="fw-bold text-secondary mb-3">Escuelas / Carreras representadas</h6>
+                        {Object.entries(careerCounts)
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 5)
+                            .map(([label, count]) => {
+                                const pct = total > 0 ? (count / total) * 100 : 0;
+                                return renderProgressBar(label, count, pct, "bg-secondary");
+                            })}
+                    </div>
+                </div>
+            </div>
+
+            {/* Análisis por Pregunta */}
+            <div className="page-break"></div>
+            <h4 className="fw-bold text-purple-700 mb-3 mt-4">Desglose Detallado de Respuestas por Pregunta</h4>
+            
+            {questionStats.map((stat, idx) => (
+                <div key={stat.id} className="card shadow-sm border-0 p-4 mb-4 bg-white print-card">
+                    <div className="d-flex justify-content-between align-items-start mb-2 border-bottom pb-2">
+                        <div>
+                            <span className="text-muted small text-uppercase font-mono">Pregunta {idx + 1} • {stat.seccion || "Cuestionario"}</span>
+                            <h5 className="fw-bold text-dark mt-1" style={{ fontSize: '1.05rem' }}>{stat.titulo}</h5>
+                        </div>
+                        <span className="badge bg-light text-secondary border px-2 py-1 small">
+                            {stat.totalAnswers} resp.
+                        </span>
+                    </div>
+
+                    {/* Renderizado según tipo de pregunta */}
+                    {stat.tipo === 'opcion_unica' && stat.stats && (
+                        <div className="mt-3">
+                            {stat.stats.map(s => {
+                                let color = "bg-primary";
+                                if (s.option.includes("Nunca") || s.option.includes("desacuerdo") || s.option === "No" || s.option === "Nunca") color = "bg-secondary";
+                                if (s.option.includes("Frecuentemente") || s.option.includes("De acuerdo") || s.option === "Sí") color = "bg-purple-700";
+                                return renderProgressBar(s.option, s.count, s.percent, color);
+                            })}
+                        </div>
+                    )}
+
+                    {stat.tipo === 'opcion_multiple' && stat.stats && (
+                        <div className="mt-3">
+                            <span className="text-muted d-block mb-3 small italic">* Pregunta de opción múltiple (los encuestados pueden seleccionar varias opciones; los porcentajes no sumarán 100%).</span>
+                            {stat.stats.map(s => {
+                                let color = "bg-info";
+                                if (s.option === "Ninguno") color = "bg-secondary";
+                                if (s.option === "Otro") color = "bg-dark";
+                                return renderProgressBar(s.option, s.count, s.percent, color);
+                            })}
+                        </div>
+                    )}
+
+                    {stat.tipo === 'texto' && stat.answersList && (
+                        <div className="mt-3">
+                            <h6 className="small fw-bold text-secondary mb-2">Respuestas Recibidas ({stat.answersList.length})</h6>
+                            {stat.answersList.length === 0 ? (
+                                <p className="text-muted italic small m-0">No se han registrado respuestas de texto para esta pregunta.</p>
+                            ) : (
+                                <div 
+                                    className={`${isPrintView ? '' : 'overflow-auto'}`} 
+                                    style={isPrintView ? {} : { maxHeight: '200px', backgroundColor: '#f8f9fa', padding: '12px', borderRadius: '6px', border: '1px solid #e9ecef' }}
+                                >
+                                    {stat.answersList.map((ans, aIdx) => (
+                                        <div key={aIdx} className="p-2 border-bottom border-gray-200 text-dark" style={{ fontSize: '0.85rem' }}>
+                                            • {ans}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+
+    if (isPrintView) {
+        return reportBody;
+    }
+
+    return (
+        <div className="modal fade show d-block no-print" tabIndex={-1} style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050, backdropFilter: 'blur(3px)' }}>
+            <div className="modal-dialog modal-xl modal-dialog-scrollable" style={{ maxHeight: '95vh', margin: '2.5vh auto' }}>
+                <div className="modal-content border-0 shadow-lg" style={{ borderRadius: '12px' }}>
+                    <div className="modal-header bg-dark text-white py-3">
+                        <h5 className="modal-title fw-bold">Visor de Informe Estadístico</h5>
+                        <button type="button" onClick={onClose} className="btn-close btn-close-white" aria-label="Close"></button>
+                    </div>
+                    <div className="modal-body p-4 bg-light">
+                        {reportBody}
+                    </div>
+                    <div className="modal-footer bg-light py-2">
+                        <button type="button" onClick={onClose} className="btn btn-secondary px-4">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};

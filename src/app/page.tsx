@@ -6,7 +6,7 @@ interface Question {
     id: string;
     titulo: string;
     seccion?: string;
-    tipo: 'texto' | 'opcion_unica';
+    tipo: 'texto' | 'opcion_unica' | 'opcion_multiple';
     opciones?: string[];
     requerida?: boolean;
 }
@@ -64,6 +64,59 @@ const RadioGroup: React.FC<{
         })}
     </div>
 );
+
+const CheckboxGroup: React.FC<{
+    name: string;
+    options: string[];
+    value: string;
+    onChange: (val: string) => void;
+    disabled?: boolean;
+    required?: boolean;
+}> = ({ name, options, value, onChange, disabled = false, required = false }) => {
+    const selectedOptions = value ? value.split(', ') : [];
+
+    const handleCheckboxChange = (opt: string, checked: boolean) => {
+        let newSelected: string[];
+        if (checked) {
+            if (opt === "Ninguno") {
+                newSelected = ["Ninguno"];
+            } else {
+                newSelected = selectedOptions.filter(x => x !== "Ninguno");
+                if (!newSelected.includes(opt)) {
+                    newSelected.push(opt);
+                }
+            }
+        } else {
+            newSelected = selectedOptions.filter(x => x !== opt);
+        }
+        
+        const orderedSelected = options.filter(x => newSelected.includes(x));
+        onChange(orderedSelected.join(', '));
+    };
+
+    return (
+        <div className="flex flex-col space-y-3">
+            {options.map((opt, idx) => {
+                const isChecked = selectedOptions.includes(opt);
+                return (
+                    <label key={idx} className={`flex items-center space-x-3 cursor-pointer group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <input 
+                            type="checkbox" 
+                            name={name} 
+                            value={opt} 
+                            checked={isChecked}
+                            onChange={(e) => handleCheckboxChange(opt, e.target.checked)}
+                            disabled={disabled}
+                            required={required && selectedOptions.length === 0}
+                            className="w-5 h-5 rounded text-purple-700 accent-purple-700 border-gray-300 focus:ring-purple-500 transition duration-150"
+                        />
+                        <span className="text-gray-700 group-hover:text-purple-800 transition duration-150">{opt}</span>
+                    </label>
+                );
+            })}
+        </div>
+    );
+};
 
 export default function HomeSurvey() {
     const slug = 'mente-cuerpo-y-aula'; // Encuesta flagship por defecto
@@ -545,11 +598,6 @@ export default function HomeSurvey() {
                                             Las siguientes preguntas recopilan su opinión sobre el impacto de los trastornos alimentarios y la importancia de contar con apoyo institucional en salud mental.
                                         </div>
                                     )}
-                                    {!sectionName.toUpperCase().includes("GAD-7") && 
-                                     !sectionName.toUpperCase().includes("ALIMENTACIÓN") && 
-                                     !sectionName.toUpperCase().includes("PERCEPCIÓN") && (
-                                        <div className="mb-4"></div>
-                                    )}
                                     
                                     {questions.map((q) => (
                                         <QuestionCard key={q.id} title={q.titulo} isRequired={q.requerida}>
@@ -560,6 +608,15 @@ export default function HomeSurvey() {
                                                     value={respuestasPreguntas[q.id] || ""}
                                                     onChange={(val) => handleQuestionChange(q.id, val)}
                                                     disabled={isSubmitting}
+                                                />
+                                            ) : q.tipo === 'opcion_multiple' && q.opciones ? (
+                                                <CheckboxGroup 
+                                                    name={q.id}
+                                                    options={q.opciones}
+                                                    value={respuestasPreguntas[q.id] || ""}
+                                                    onChange={(val) => handleQuestionChange(q.id, val)}
+                                                    disabled={isSubmitting}
+                                                    required={q.requerida}
                                                 />
                                             ) : (
                                                 <input 
